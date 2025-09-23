@@ -44,12 +44,10 @@ class DataCollector:
             
             firefox_options = FirefoxOptions()
             firefox_options.add_argument("--headless")
-                    
-            # Explicitly set Firefox binary path for Armbian
-            firefox_options.binary_location = "/usr/bin/firefox"
-        
-            # Use webdriver-manager to automatically handle geckodriver
-            service = FirefoxService(GeckoDriverManager().install())
+            firefox_options.binary_location = "/usr/bin/firefox"  # Explicit path
+            
+            # Use the installed geckodriver
+            service = FirefoxService('/usr/local/bin/geckodriver')
             driver = webdriver.Firefox(service=service, options=firefox_options)
             
             driver.get(self.url)
