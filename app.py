@@ -35,7 +35,6 @@ class DataCollector:
     def __init__(self, url: str):
         self.url = url
         self.last_content = ""
-        chromedriver_autoinstaller.install()
 
     def fetch_content(self) -> Optional[str]:
         """Fetch content using Selenium and extract product info and prices"""
