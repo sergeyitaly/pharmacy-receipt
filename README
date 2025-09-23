@@ -28,3 +28,5 @@ sudo apt install -y ./google-chrome-stable_current_*.deb
 
 # Fix any dependencies
 sudo apt --fix-broken install
+
+sudo apt install firefox-geckodriver -y

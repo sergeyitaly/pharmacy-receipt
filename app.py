@@ -9,7 +9,9 @@ import threading
 from datetime import datetime
 from dotenv import load_dotenv
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.firefox.service import Service as FirefoxService
+from webdriver_manager.firefox import GeckoDriverManager
 from bs4 import BeautifulSoup
 from typing import Optional
 import chromedriver_autoinstaller
@@ -42,8 +44,12 @@ class DataCollector:
             
             firefox_options = FirefoxOptions()
             firefox_options.add_argument("--headless")
-            
-            service = FirefoxService('/usr/bin/geckodriver')
+                    
+            # Explicitly set Firefox binary path for Armbian
+            firefox_options.binary_location = "/usr/bin/firefox"
+        
+            # Use webdriver-manager to automatically handle geckodriver
+            service = FirefoxService(GeckoDriverManager().install())
             driver = webdriver.Firefox(service=service, options=firefox_options)
             
             driver.get(self.url)
