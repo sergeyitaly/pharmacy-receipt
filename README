@@ -30,3 +30,15 @@ sudo apt install -y ./google-chrome-stable_current_*.deb
 sudo apt --fix-broken install
 
 sudo apt install firefox-geckodriver -y
+
+# Download the correct ARM64 version
+wget https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux-aarch64.tar.gz
+
+# If that fails, try:
+curl -L -o geckodriver.tar.gz https://github.com/mozilla/geckodriver/releases/latest/download/geckodriver-v0.34.0-linux-aarch64.tar.gz
+
+# Extract and install
+tar -xzf geckodriver*.tar.gz
+chmod +x geckodriver
+sudo mv geckodriver /usr/local/bin/
+geckodriver --version
