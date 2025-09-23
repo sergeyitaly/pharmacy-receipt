@@ -46,7 +46,7 @@ class DataCollector:
             driver = webdriver.Chrome(service=service, options=chrome_options)
 
 
-            driver = webdriver.Chrome(options=chrome_options)
+            #driver = webdriver.Chrome(options=chrome_options)
             driver.get(self.url)
             time.sleep(3)  # Wait for content to load
             html = driver.page_source
