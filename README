@@ -13,3 +13,18 @@ source venv/bin/activate
 
 # Install Python dependencies
 pip install selenium requests beautifulsoup4 python-dotenv schedule
+
+sudo apt update
+sudo apt install -y wget gnupg
+
+# Download and install Google Chrome
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+
+# If the above fails (if you're on ARM architecture), try:
+wget https://dl.google.com/linux/direct/google-chrome-stable_current_arm64.deb
+
+# Install Chrome
+sudo apt install -y ./google-chrome-stable_current_*.deb
+
+# Fix any dependencies
+sudo apt --fix-broken install

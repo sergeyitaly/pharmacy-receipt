@@ -13,6 +13,7 @@ from selenium.webdriver.chrome.options import Options
 from bs4 import BeautifulSoup
 from typing import Optional
 import chromedriver_autoinstaller
+from selenium.webdriver.chrome.service import Service
 
 # Load environment variables
 load_dotenv('config/.env')
@@ -40,6 +41,11 @@ class DataCollector:
             chrome_options.add_argument("--no-sandbox")
             chrome_options.add_argument("--disable-dev-shm-usage")
             
+            # Explicitly set ChromeDriver path for ARM/Snap compatibility
+            service = Service('/usr/bin/chromedriver')
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+
+
             driver = webdriver.Chrome(options=chrome_options)
             driver.get(self.url)
             time.sleep(3)  # Wait for content to load
