@@ -15,6 +15,11 @@ from typing import Optional
 import chromedriver_autoinstaller
 from selenium.webdriver.chrome.service import Service
 
+
+from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.firefox.service import Service as FirefoxService
+
+
 # Load environment variables
 load_dotenv('config/.env')
 
@@ -35,18 +40,12 @@ class DataCollector:
         try:
             logger.info(f"Fetching content from: {self.url}")
             
-            chrome_options = Options()
-            chrome_options.add_argument("--headless")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
+            firefox_options = FirefoxOptions()
+            firefox_options.add_argument("--headless")
             
-            # Explicitly set ChromeDriver path for ARM/Snap compatibility
-            service = Service('/usr/bin/chromedriver')
-            driver = webdriver.Chrome(service=service, options=chrome_options)
-
-
-            #driver = webdriver.Chrome(options=chrome_options)
+            service = FirefoxService('/usr/bin/geckodriver')
+            driver = webdriver.Firefox(service=service, options=firefox_options)
+            
             driver.get(self.url)
             time.sleep(3)  # Wait for content to load
             html = driver.page_source
@@ -93,7 +92,7 @@ class DataCollector:
         except Exception as e:
             logger.error(f"Error fetching content: {e}")
             return None
-
+        
 def get_last_content_from_file():
     """Get the last content from the data file to avoid duplicates"""
     data_file = 'collected_data.txt'
