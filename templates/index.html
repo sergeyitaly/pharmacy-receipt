@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pharmacy Sales Data</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Pharmacy Sales Data</h1>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <button class="theme-toggle" onclick="toggleTheme()">
+                    <i class="fas fa-moon"></i> Theme
+                </button>
+                <button class="view-toggle" onclick="toggleCompact()">
+                    <i class="fas fa-compress"></i> Compact
+                </button>
+            </div>
+        </div>
+
+        <div class="totals-grid">
+            <div class="total-card">
+                <h3>Total Entries</h3>
+                <div class="total-value">{{ total_entries }}</div>
+            </div>
+            <div class="total-card">
+                <h3>Total Sales</h3>
+                <div class="total-value">{{ "%.2f"|format(totals.total_sales) }} ₴</div>
+            </div>
+            <div class="total-card">
+                <h3>Items Sold</h3>
+                <div class="total-value">{{ totals.total_items }}</div>
+            </div>
+            <div class="total-card">
+                <h3>Unique Products</h3>
+                <div class="total-value">{{ totals.unique_products_count }}</div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="{{ url_for('export_csv') }}" class="btn btn-primary">
+                <i class="fas fa-download"></i> Export CSV
+            </a>
+            <a href="{{ url_for('export_excel') }}" class="btn btn-primary">
+                <i class="fas fa-file-excel"></i> Export Excel
+            </a>
+        </div>
+
+        <h2>Sales Records</h2>
+        
+        <!-- Desktop Table -->
+        <table class="sales-table">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Product</th>
+                    <th>UKTZED</th>
+                    <th>Barcode</th>
+                    <th>Quantity</th>
+                    <th>Unit Price</th>
+                    <th>Total Price</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry in entries %}
+                <tr>
+                    <td>{{ entry.timestamp }}</td>
+                    <td>{{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}</td>
+                    <td>{{ entry.sales_data.uktzed if entry.sales_data else 'N/A' }}</td>
+                    <td>{{ entry.sales_data.barcode if entry.sales_data else 'N/A' }}</td>
+                    <td>{{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}</td>
+                    <td>{{ entry.sales_data.unit_price if entry.sales_data else 'N/A' }} ₴</td>
+                    <td>{{ entry.sales_data.total_price if entry.sales_data else 'N/A' }} ₴</td>
+                    <td>
+                        <a href="{{ entry.url }}" target="_blank" style="margin-right: 0.5rem;">
+                            <i class="fas fa-external-link-alt"></i>
+                        </a>
+                        <button class="btn-copy" onclick="copySaleData({{ loop.index0 }})">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center;">No sales data available</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Mobile Cards -->
+        {% for entry in entries %}
+        <div class="mobile-card">
+            <div class="card-row">
+                <span class="card-label">Time:</span>
+                <span>{{ entry.timestamp }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Product:</span>
+                <span>{{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Price:</span>
+                <span>{{ entry.sales_data.total_price if entry.sales_data else 'N/A' }} ₴</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Qty:</span>
+                <span>{{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}</span>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <a href="{{ entry.url }}" target="_blank" class="btn btn-primary" style="flex: 1;">
+                    <i class="fas fa-external-link-alt"></i> View
+                </a>
+                <button class="btn btn-copy" onclick="copySaleData({{ loop.index0 }})" style="flex: 1;">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <div class="mobile-card">
+            <div style="text-align: center;">No sales data available</div>
+        </div>
+        {% endfor %}
+
+        <div class="footer">
+            <p>Last updated: {{ now.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+            <p>Auto-refresh every 60 seconds</p>
+        </div>
+    </div>
+
+    <script>
+        // Theme management
+        function toggleTheme() {
+            const body = document.body;
+            const currentTheme = body.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            body.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            const icon = document.querySelector('.theme-toggle i');
+            icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+
+        // Compact view
+        function toggleCompact() {
+            document.body.classList.toggle('compact');
+            localStorage.setItem('compact', document.body.classList.contains('compact'));
+        }
+
+        // Initialize theme and compact view
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load saved theme
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.body.setAttribute('data-theme', savedTheme);
+                const icon = document.querySelector('.theme-toggle i');
+                icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+
+            // Load compact view
+            if (localStorage.getItem('compact') === 'true') {
+                document.body.classList.add('compact');
+            }
+
+            // Auto-refresh every 60 seconds
+            setTimeout(() => {
+                location.reload();
+            }, 60000);
+        });
+
+        // Store entries data for JavaScript access
+        const salesData = {{ entries | tojson }};
+
+        function copySaleData(index) {
+            const sale = salesData[index];
+            const text = `Pharmacy Sale Record:
+Timestamp: ${sale.timestamp}
+Product: ${sale.sales_data?.product_name || 'N/A'}
+UKTZED: ${sale.sales_data?.uktzed || 'N/A'}
+Barcode: ${sale.sales_data?.barcode || 'N/A'}
+Quantity: ${sale.sales_data?.quantity || 'N/A'}
+Unit Price: ${sale.sales_data?.unit_price || 'N/A'} ₴
+Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴
+URL: ${sale.url}`;
+
+            copyToClipboard(text);
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showNotification('Copied to clipboard! Ready for ChatGPT analysis.');
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                showNotification('Failed to copy to clipboard', 'error');
+            });
+        }
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+                ${message}
+            `;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

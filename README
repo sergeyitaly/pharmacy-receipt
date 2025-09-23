@@ -1,0 +1,15 @@
+# Update system
+sudo apt update
+sudo apt upgrade -y
+
+# Install required packages
+sudo apt install -y python3-pip python3-venv chromium-chromedriver
+
+playwright install
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install Python dependencies
+pip install selenium requests beautifulsoup4 python-dotenv schedule
