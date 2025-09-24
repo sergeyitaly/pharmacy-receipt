@@ -578,13 +578,6 @@ def api_totals():
     totals = calculate_totals(entries)
     return jsonify(totals)
 
-
-if __name__ == '__main__':
-    # This runs when you start the script manually
-    data_collector_thread = threading.Thread(target=collect_and_save_data, daemon=True)
-    data_collector_thread.start()
-    app.run(debug=True, host='0.0.0.0', port=5000)
-
 if __name__ == '__main__':
     # Start Flask app
     app.run(host='0.0.0.0', port=5000, debug=False)  # debug=False in production
