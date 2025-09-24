@@ -159,7 +159,7 @@ def collect_and_save_data():
                     logger.info("No valid content to save")
             
             # Wait before next check
-            time.sleep(10)  # Check every 10 seconds
+            time.sleep(60)  # Check every 10 seconds
             
         except Exception as e:
             logger.error(f"Error in data collection loop: {e}")
