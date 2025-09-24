@@ -49,52 +49,53 @@
             </a>
         </div>
 
-        <h2>Sales Records</h2>
+<h2>Sales Records</h2>
 
-        <div style="margin-bottom: 1rem;">
-            <input type="text" id="tableSearch" placeholder="Search by product, barcode, or UKTZED..." style="padding: 0.5rem; width: 100%; max-width: 400px;">
-        </div>
-        
-            <thead>
-                <tr>
-                    <th onclick="sortTable(0)">Timestamp <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(1)">Product <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(2)">UKTZED <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(3)">Barcode <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(4)">Quantity <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(5)">Unit Price <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(6)">Total Price <i class="fas fa-sort"></i></th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for entry in entries %}
-                <tr>
-                    <td>{{ entry.timestamp }}</td>
-                    <td>{{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}</td>
-                    <td>{{ entry.sales_data.uktzed if entry.sales_data else 'N/A' }}</td>
-                    <td>{{ entry.sales_data.barcode if entry.sales_data else 'N/A' }}</td>
-                    <td>{{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}</td>
-                    <td>{{ entry.sales_data.unit_price if entry.sales_data else 'N/A' }} ₴</td>
-                    <td>{{ entry.sales_data.total_price if entry.sales_data else 'N/A' }} ₴</td>
-                    <td>
-                        <a href="{{ entry.url }}" target="_blank" style="margin-right: 0.5rem;">
-                            <i class="fas fa-external-link-alt"></i>
-                        </a>
-                        <button class="btn-copy" onclick="copySaleData({{ loop.index0 }})">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="8" style="text-align: center;">No sales data available</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div style="margin-bottom: 1rem;">
+    <input type="text" id="tableSearch" placeholder="Search by product, barcode, or UKTZED..." style="padding: 0.5rem; width: 100%; max-width: 400px;">
+</div>
 
-        <!-- Mobile Cards -->
+<table class="sales-table">
+    <thead>
+        <tr>
+            <th onclick="sortTable(0)">Timestamp <i class="fas fa-sort"></i></th>
+            <th onclick="sortTable(1)">Product <i class="fas fa-sort"></i></th>
+            <th onclick="sortTable(2)">UKTZED <i class="fas fa-sort"></i></th>
+            <th onclick="sortTable(3)">Barcode <i class="fas fa-sort"></i></th>
+            <th onclick="sortTable(4)">Quantity <i class="fas fa-sort"></i></th>
+            <th onclick="sortTable(5)">Unit Price <i class="fas fa-sort"></i></th>
+            <th onclick="sortTable(6)">Total Price <i class="fas fa-sort"></i></th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for entry in entries %}
+        <tr>
+            <td>{{ entry.timestamp }}</td>
+            <td>{{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}</td>
+            <td>{{ entry.sales_data.uktzed if entry.sales_data else 'N/A' }}</td>
+            <td>{{ entry.sales_data.barcode if entry.sales_data else 'N/A' }}</td>
+            <td>{{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}</td>
+            <td>{{ entry.sales_data.unit_price if entry.sales_data else 'N/A' }} ₴</td>
+            <td>{{ entry.sales_data.total_price if entry.sales_data else 'N/A' }} ₴</td>
+            <td>
+                <a href="{{ entry.url }}" target="_blank" style="margin-right: 0.5rem;">
+                    <i class="fas fa-external-link-alt"></i>
+                </a>
+                <button class="btn-copy" onclick="copySaleData({{ loop.index0 }})">
+                    <i class="fas fa-copy"></i>
+                </button>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="8" style="text-align: center;">No sales data available</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Mobile Cards -->
         {% for entry in entries %}
         <div class="mobile-card">
             <div class="card-row">
