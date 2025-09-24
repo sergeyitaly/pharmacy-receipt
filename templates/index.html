@@ -50,18 +50,20 @@
         </div>
 
         <h2>Sales Records</h2>
+
+        <div style="margin-bottom: 1rem;">
+            <input type="text" id="tableSearch" placeholder="Search by product, barcode, or UKTZED..." style="padding: 0.5rem; width: 100%; max-width: 400px;">
+        </div>
         
-        <!-- Desktop Table -->
-        <table class="sales-table">
             <thead>
                 <tr>
-                    <th>Timestamp</th>
-                    <th>Product</th>
-                    <th>UKTZED</th>
-                    <th>Barcode</th>
-                    <th>Quantity</th>
-                    <th>Unit Price</th>
-                    <th>Total Price</th>
+                    <th onclick="sortTable(0)">Timestamp <i class="fas fa-sort"></i></th>
+                    <th onclick="sortTable(1)">Product <i class="fas fa-sort"></i></th>
+                    <th onclick="sortTable(2)">UKTZED <i class="fas fa-sort"></i></th>
+                    <th onclick="sortTable(3)">Barcode <i class="fas fa-sort"></i></th>
+                    <th onclick="sortTable(4)">Quantity <i class="fas fa-sort"></i></th>
+                    <th onclick="sortTable(5)">Unit Price <i class="fas fa-sort"></i></th>
+                    <th onclick="sortTable(6)">Total Price <i class="fas fa-sort"></i></th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -134,6 +136,57 @@
 
     <script>
         // Theme management
+
+            // Table Filtering
+            document.getElementById("tableSearch").addEventListener("keyup", function () {
+                const filter = this.value.toLowerCase();
+                const rows = document.querySelectorAll(".sales-table tbody tr");
+
+                rows.forEach(row => {
+                    const product = row.cells[1]?.textContent.toLowerCase() || "";
+                    const uktzed = row.cells[2]?.textContent.toLowerCase() || "";
+                    const barcode = row.cells[3]?.textContent.toLowerCase() || "";
+
+                    if (product.includes(filter) || uktzed.includes(filter) || barcode.includes(filter)) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                    }
+                });
+            });
+
+            // Table Sorting
+            let sortDirection = {};
+            function sortTable(columnIndex) {
+                const table = document.querySelector(".sales-table tbody");
+                const rows = Array.from(table.rows);
+
+                // Toggle sorting direction
+                sortDirection[columnIndex] = !sortDirection[columnIndex];
+
+                rows.sort((a, b) => {
+                    let valA = a.cells[columnIndex].innerText.trim();
+                    let valB = b.cells[columnIndex].innerText.trim();
+
+                    // Convert to numbers if possible
+                    const numA = parseFloat(valA.replace(/[^\d.-]/g, ""));
+                    const numB = parseFloat(valB.replace(/[^\d.-]/g, ""));
+                    if (!isNaN(numA) && !isNaN(numB)) {
+                        valA = numA;
+                        valB = numB;
+                    }
+
+                    if (valA < valB) return sortDirection[columnIndex] ? -1 : 1;
+                    if (valA > valB) return sortDirection[columnIndex] ? 1 : -1;
+                    return 0;
+                });
+
+                // Append sorted rows back
+                rows.forEach(row => table.appendChild(row));
+            }
+
+
+
         function toggleTheme() {
             const body = document.body;
             const currentTheme = body.getAttribute('data-theme') || 'light';
