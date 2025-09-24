@@ -6,7 +6,7 @@ import io
 import time
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -16,11 +16,6 @@ from bs4 import BeautifulSoup
 from typing import Optional
 import chromedriver_autoinstaller
 from selenium.webdriver.chrome.service import Service
-
-
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from selenium.webdriver.firefox.service import Service as FirefoxService
-
 
 # Load environment variables
 load_dotenv('config/.env')
@@ -95,7 +90,7 @@ class DataCollector:
         except Exception as e:
             logger.error(f"Error fetching content: {e}")
             return None
-        
+
 def get_last_content_from_file():
     """Get the last content from the data file to avoid duplicates"""
     data_file = 'collected_data.txt'
@@ -180,6 +175,7 @@ def parse_data_file():
     entries = []
     current_entry = {}
     in_content_section = False
+    entry_count = 0
     
     with open(data_file, 'r', encoding='utf-8') as f:
         lines = f.readlines()
@@ -188,12 +184,15 @@ def parse_data_file():
         line = line.strip()
         
         if line.startswith('=== Data collected at '):
-            if current_entry:
+            if current_entry and current_entry.get('content'):
                 # Process the previous entry
-                if current_entry.get('content'):
-                    current_entry['raw_content'] = '\n'.join(current_entry['content'])
-                    current_entry['sales_data'] = extract_sales_data(current_entry['raw_content'])
-                entries.append(current_entry)
+                current_entry['raw_content'] = '\n'.join(current_entry['content'])
+                current_entry['sales_data'] = extract_sales_data(current_entry['raw_content'])
+                
+                # Only add if we have valid sales data
+                if current_entry['sales_data'].get('product_name'):
+                    entries.append(current_entry)
+                    entry_count += 1
             
             # Start new entry
             current_entry = {
@@ -212,7 +211,7 @@ def parse_data_file():
             in_content_section = True
             
         elif line.startswith('=' * 50):
-            # End of current entry (handled at next entry start)
+            # End of current entry
             in_content_section = False
             
         elif line and in_content_section:
@@ -223,12 +222,28 @@ def parse_data_file():
     if current_entry and current_entry.get('content'):
         current_entry['raw_content'] = '\n'.join(current_entry['content'])
         current_entry['sales_data'] = extract_sales_data(current_entry['raw_content'])
-        entries.append(current_entry)
+        if current_entry['sales_data'].get('product_name'):
+            entries.append(current_entry)
     
-    # Filter out any empty entries
-    entries = [entry for entry in entries if entry.get('content')]
+    # Remove duplicates based on timestamp and product name
+    unique_entries = remove_duplicate_entries(entries)
     
-    return entries[::-1]  # Reverse to show latest first
+    return unique_entries[::-1]  # Reverse to show latest first
+
+def remove_duplicate_entries(entries):
+    """Remove duplicate entries based on timestamp and product name"""
+    seen = set()
+    unique_entries = []
+    
+    for entry in entries:
+        sales_data = entry.get('sales_data', {})
+        key = (entry.get('timestamp', ''), sales_data.get('product_name', ''))
+        
+        if key not in seen and sales_data.get('product_name'):
+            seen.add(key)
+            unique_entries.append(entry)
+    
+    return unique_entries
 
 def extract_sales_data(content):
     """Extract structured sales information from content including prices"""
@@ -242,7 +257,7 @@ def extract_sales_data(content):
         'quantity': '1',
         'unit_price': '',
         'total_price': '',
-        'currency': 'UAH',
+        'currency': '₴',
         'price_details': '',
         'price_breakdown': ''
     }
@@ -313,6 +328,13 @@ def extract_sales_data(content):
                 sales_data['product_name'] = line
                 break
     
+    # Clean up prices - ensure they have proper formatting
+    if sales_data.get('unit_price'):
+        sales_data['unit_price'] = format_price(sales_data['unit_price'])
+    
+    if sales_data.get('total_price'):
+        sales_data['total_price'] = format_price(sales_data['total_price'])
+    
     # Calculate unit price if we have total price and quantity but no unit price
     if (not sales_data['unit_price'] and 
         sales_data['total_price'] and 
@@ -340,10 +362,23 @@ def extract_sales_data(content):
     
     return sales_data
 
+def format_price(price_str):
+    """Format price string to have 2 decimal places"""
+    try:
+        # Remove any non-numeric characters except decimal point/comma
+        clean_price = re.sub(r'[^\d,.]', '', price_str)
+        # Replace comma with dot for conversion
+        clean_price = clean_price.replace(',', '.')
+        # Convert to float and format with 2 decimal places
+        price_float = float(clean_price)
+        return f"{price_float:.2f}"
+    except (ValueError, TypeError):
+        return price_str
+
 def calculate_totals(entries):
     """Calculate total sales statistics"""
     totals = {
-        'total_sales': 0,
+        'total_sales': 0.0,
         'total_items': 0,
         'unique_products': set(),
         'sales_by_hour': {}
@@ -357,12 +392,14 @@ def calculate_totals(entries):
             try:
                 totals['total_items'] += int(sales_data.get('quantity', 1))
             except (ValueError, TypeError):
-                pass
+                totals['total_items'] += 1
         
         # Sum sales
         if sales_data.get('total_price'):
             try:
-                price = float(sales_data['total_price'].replace(',', '.'))
+                # Clean the price string before conversion
+                price_str = sales_data['total_price'].replace('₴', '').strip()
+                price = float(price_str.replace(',', '.'))
                 totals['total_sales'] += price
             except (ValueError, TypeError, AttributeError):
                 pass
@@ -381,6 +418,7 @@ def calculate_totals(entries):
                 pass
     
     totals['unique_products_count'] = len(totals['unique_products'])
+    totals['total_sales'] = round(totals['total_sales'], 2)
     return totals
 
 @app.route('/')
