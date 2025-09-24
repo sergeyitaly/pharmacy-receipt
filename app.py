@@ -73,7 +73,7 @@ class DataCollector:
                 logger.info("New Firefox browser instance created")
             
             # Use existing browser instance
-            self.driver.get(self.url)
+            self.driver.refresh(self.url)
             time.sleep(3)  # Wait for content to load
             html = self.driver.page_source
             
