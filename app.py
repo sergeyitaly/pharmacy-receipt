@@ -31,26 +31,54 @@ class DataCollector:
         self.url = url
         self.last_content = ""
 
+    def is_browser_healthy(self):
+        """Check if the browser instance is still responsive"""
+        try:
+            if hasattr(self, 'driver') and self.driver:
+                # Simple health check - get current URL
+                self.driver.current_url
+                return True
+        except:
+            pass
+        return False
+
     def fetch_content(self) -> Optional[str]:
         """Fetch content using Selenium and extract product info and prices"""
         try:
             logger.info(f"Fetching content from: {self.url}")
-
-            firefox_options = FirefoxOptions()
-            firefox_options.add_argument("--headless")
-            firefox_options.binary_location = "/usr/bin/firefox"  # Explicit path
-
-            # Use the installed geckodriver
-            service = FirefoxService('/usr/local/bin/geckodriver')
-            driver = webdriver.Firefox(service=service, options=firefox_options)
-
-            driver.get(self.url)
+            
+            # Initialize browser if it doesn't exist
+            if (not hasattr(self, 'driver') or self.driver is None or 
+                not self.is_browser_healthy()):
+                
+                # Clean up old instance if exists
+                if hasattr(self, 'driver') and self.driver:
+                    try:
+                        self.driver.quit()
+                    except:
+                        pass
+                
+                firefox_options = FirefoxOptions()
+                firefox_options.add_argument("--headless")
+                firefox_options.binary_location = "/usr/bin/firefox"
+                
+                # Set additional options to reduce memory usage
+                firefox_options.add_argument("--no-sandbox")
+                firefox_options.add_argument("--disable-dev-shm-usage")
+                firefox_options.add_argument("--disable-gpu")
+                firefox_options.add_argument("--window-size=1920,1080")
+                
+                service = FirefoxService('/usr/local/bin/geckodriver')
+                self.driver = webdriver.Firefox(service=service, options=firefox_options)
+                logger.info("New Firefox browser instance created")
+            
+            # Use existing browser instance
+            self.driver.get(self.url)
             time.sleep(3)  # Wait for content to load
-            html = driver.page_source
-            driver.quit()
-
+            html = self.driver.page_source
+            
             soup = BeautifulSoup(html, "html.parser")
-
+            
             # First try to find the check div, then chekPosition inside it
             check_div = soup.find("div", class_="check")
             if check_div:
@@ -58,27 +86,27 @@ class DataCollector:
             else:
                 # Fallback to direct chekPosition search
                 chek_div = soup.find("div", class_="chekPosition")
-
+            
             if not chek_div:
                 logger.warning("No chekPosition div found")
                 return "No product information available"
-
+            
             # Extract all text content including prices from NDS div
             content_lines = []
-
+            
             # First, get all the main <p> tags (UKTZED, barcode, product name)
             for p in chek_div.find_all("p", class_=lambda x: x != "bold"):
                 content_lines.append(p.get_text(strip=True))
-
+            
             # Now extract price information from NDS div
             nds_div = chek_div.find("div", class_="NDS")
             if nds_div:
                 # Get all paragraphs within NDS div (including the price info)
                 for p in nds_div.find_all("p"):
                     content_lines.append(p.get_text(strip=True))
-
+            
             content = "\n".join(content_lines)
-
+            
             if content != self.last_content:
                 self.last_content = content
                 logger.info(f"New product info extracted: {content}")
@@ -89,8 +117,25 @@ class DataCollector:
 
         except Exception as e:
             logger.error(f"Error fetching content: {e}")
+            # Clean up the browser instance on error
+            if hasattr(self, 'driver') and self.driver:
+                try:
+                    self.driver.quit()
+                    self.driver = None
+                except:
+                    pass
             return None
 
+    def cleanup(self):
+        """Clean up browser instance when done"""
+        if hasattr(self, 'driver') and self.driver:
+            try:
+                self.driver.quit()
+                self.driver = None
+                logger.info("Browser instance cleaned up")
+            except Exception as e:
+                logger.error(f"Error cleaning up browser: {e}")
+                
 def get_last_content_from_file():
     """Get the last content from the data file to avoid duplicates"""
     data_file = 'collected_data.txt'
@@ -128,42 +173,46 @@ def collect_and_save_data():
     """Periodically collect data and save to file, avoiding duplicates"""
     url = os.getenv('TARGET_URL', 'https://example.com')
     collector = DataCollector(url)
-
+    
     # Get the last saved content to avoid duplicates
     last_saved_content = get_last_content_from_file()
-
-    while True:
-        try:
-            content = collector.fetch_content()
-
-            if (content and
-                content != "No product information available" and
-                content != last_saved_content):
-
-                # Save to file
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                with open('collected_data.txt', 'a', encoding='utf-8') as f:
-                    f.write(f"\n{'='*50}\n")
-                    f.write(f"=== Data collected at {timestamp} ===\n")
-                    f.write(f"URL: {url}\n")
-                    f.write("Content:\n")
-                    f.write(f"{content}\n")
-                    f.write(f"{'='*50}\n")
-
-                last_saved_content = content
-                logger.info(f"New data saved at {timestamp}")
-            else:
-                if content == last_saved_content:
-                    logger.info("Content unchanged, skipping save")
+    
+    try:
+        while True:
+            try:
+                content = collector.fetch_content()
+                
+                if (content and 
+                    content != "No product information available" and 
+                    content != last_saved_content):
+                    
+                    # Save to file
+                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    with open('collected_data.txt', 'a', encoding='utf-8') as f:
+                        f.write(f"\n{'='*50}\n")
+                        f.write(f"=== Data collected at {timestamp} ===\n")
+                        f.write(f"URL: {url}\n")
+                        f.write("Content:\n")
+                        f.write(f"{content}\n")
+                        f.write(f"{'='*50}\n")
+                    
+                    last_saved_content = content
+                    logger.info(f"New data saved at {timestamp}")
                 else:
-                    logger.info("No valid content to save")
-
-            # Wait before next check
-            time.sleep(60)  # Check every 10 seconds
-
-        except Exception as e:
-            logger.error(f"Error in data collection loop: {e}")
-            time.sleep(60)  # Wait longer on error
+                    if content == last_saved_content:
+                        logger.info("Content unchanged, skipping save")
+                    else:
+                        logger.info("No valid content to save")
+                
+                # Wait before next check
+                time.sleep(60)  # Check every 60 seconds
+                
+            except Exception as e:
+                logger.error(f"Error in data collection loop: {e}")
+                time.sleep(60)  # Wait longer on error
+    finally:
+        # Ensure browser is cleaned up when the thread stops
+        collector.cleanup()
 
 def parse_data_file():
     """Parse the collected_data.txt file and return structured sales data"""
