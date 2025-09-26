@@ -442,3 +442,82 @@
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
         }
+
+        /* High-DPI Chart Canvas Fixes */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 500px;
+}
+
+#topProductsChart {
+    width: 100% !important;
+    height: 100% !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Improved font rendering */
+body {
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-smoothing: antialiased;
+}
+
+/* Sort button improvements */
+.sort-btn {
+    margin: 0 5px;
+    padding: 10px 20px;
+    cursor: pointer;
+    border: 2px solid #007bff;
+    background: white;
+    color: #007bff;
+    border-radius: 6px;
+    font-weight: 600;
+    font-family: "'Segoe UI', 'Arial', sans-serif";
+    font-size: 14px;
+    transition: all 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.sort-btn.active {
+    background: #007bff;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+}
+
+.sort-btn:hover {
+    background: #0056b3;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
+/* Chart section improvements */
+.chart-section {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border: 1px solid var(--border-color);
+}
+
+#chartSortingControls {
+    margin: 20px 0;
+    text-align: center;
+    padding: 15px;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+#chartSortingControls label {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-color);
+    font-family: "'Segoe UI', 'Arial', sans-serif";
+    margin-right: 15px;
+}
