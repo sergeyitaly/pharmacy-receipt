@@ -448,7 +448,56 @@ def _calculate_missing_prices(sales_data: Dict):
     except (ValueError, ZeroDivisionError) as e:
         logger.warning(f"Price calculation error: {e}")
 
-def get_top_selling_products_last_7_days() -> List[Dict]:
+def get_top_selling_products_by_quantity_last_7_days() -> List[Dict]:
+    """Get top 10 selling products from last 7 days (by quantity)"""
+    try:
+        data = data_manager.get_last_7_days_data()
+        
+        # Aggregate sales by product
+        product_sales = defaultdict(lambda: {'quantity': 0, 'revenue': 0.0, 'occurrences': 0})
+        
+        for entry in data:
+            sales_data_list = entry.get('sales_data', [])
+            if isinstance(sales_data_list, list):
+                for item in sales_data_list:
+                    if item and item.get('product_name'):
+                        product_name = item['product_name']
+                        quantity = int(item.get('quantity', 1))
+                        try:
+                            revenue = float(item.get('total_price', '0').replace(',', '.'))
+                        except (ValueError, TypeError):
+                            revenue = 0.0
+                        
+                        product_sales[product_name]['quantity'] += quantity
+                        product_sales[product_name]['revenue'] += revenue
+                        product_sales[product_name]['occurrences'] += 1
+        
+        # Convert to list
+        top_products = []
+        for product_name, stats in product_sales.items():
+            top_products.append({
+                'product_name': product_name,
+                'total_quantity': stats['quantity'],
+                'total_revenue': round(stats['revenue'], 2),
+                'occurrences': stats['occurrences'],
+                'average_revenue_per_sale': round(
+                    stats['revenue'] / stats['occurrences'], 2
+                ) if stats['occurrences'] > 0 else 0
+            })
+        
+        # ✅ Sort by total quantity (descending) and take top 10
+        top_products.sort(key=lambda x: x['total_quantity'], reverse=True)
+        top_10 = top_products[:10]
+        
+        logger.info(f"Found {len(top_10)} top selling products (by quantity)")
+        return top_10
+        
+    except Exception as e:
+        logger.error(f"Error getting top selling products: {e}")
+        return []
+
+
+def get_top_selling_products_by_revenue_last_7_days() -> List[Dict]:
     """Get top 10 selling products from last 7 days"""
     try:
         data = data_manager.get_last_7_days_data()
@@ -580,7 +629,7 @@ def index():
     totals = calculate_totals(flattened_entries)
     
     # Get top selling products for the chart
-    top_products = get_top_selling_products_last_7_days()
+    top_products = get_top_selling_products_by_quantity_last_7_days()
     
     return render_template('index.html', 
                          entries=flattened_entries, 
