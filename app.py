@@ -554,6 +554,46 @@ def export_csv():
     
     return response
 
+@app.route('/export/excel')
+def export_excel():
+    """Export data as Excel-compatible CSV with UTF-8 BOM"""
+    entries = data_manager.load_data()
+    
+    # Create CSV with UTF-8 BOM for Excel compatibility
+    output = io.BytesIO()
+    output.write(b'\xef\xbb\xbf')  # UTF-8 BOM for Excel
+    
+    # Write CSV content
+    output.write('Timestamp,Product,UKTZED,Barcode,Quantity,Unit Price (UAH),Total Price (UAH),Price Details,URL\n'.encode('utf-8'))
+    
+    for entry in entries:
+        sales_data = entry.get('sales_data', {})
+        row = [
+            entry.get('timestamp', ''),
+            sales_data.get('product_name', ''),
+            sales_data.get('uktzed', ''),
+            sales_data.get('barcode', ''),
+            str(sales_data.get('quantity', '')),
+            str(sales_data.get('unit_price', '')),
+            str(sales_data.get('total_price', '')),
+            sales_data.get('price_details', ''),
+            entry.get('url', '')
+        ]
+        # Properly escape CSV fields
+        csv_row = ','.join(f'"{field.replace('"', '""')}"' for field in row) + '\n'
+        output.write(csv_row.encode('utf-8'))
+    
+    response = Response(
+        output.getvalue(),
+        mimetype='text/csv; charset=utf-8',
+        headers={
+            'Content-Disposition': f'attachment; filename=pharmacy-sales-{datetime.now().strftime("%Y-%m-%d")}.csv'
+        }
+    )
+    
+    return response
+
+
 def parse_data_file():
     """Parse the collected_data.txt file and return structured sales data"""
     data_file = 'collected_data.txt'
@@ -613,48 +653,6 @@ def parse_data_file():
     entries = [entry for entry in entries if entry.get('content')]
     
     return entries[::-1]  # Reverse to show latest first
-
-@app.route('/export/excel')
-def export_excel():
-    """Export data as Excel file (UTF-8 encoded) with proper price formatting"""
-    entries = parse_data_file()
-    
-    # Create CSV with UTF-8 BOM for Excel compatibility
-    output = io.StringIO()
-    output.write('\ufeff')  # UTF-8 BOM for Excel
-    
-    writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow([
-        'Timestamp', 'Product', 'UKTZED', 'Barcode', 
-        'Quantity', 'Unit Price (UAH)', 'Total Price (UAH)', 'Price Details', 'URL'
-    ])
-    
-    # Write data
-    for entry in entries:
-        sales_data = entry.get('sales_data', {})
-        writer.writerow([
-            entry.get('timestamp', ''),
-            sales_data.get('product_name', ''),
-            sales_data.get('uktzed', ''),
-            sales_data.get('barcode', ''),
-            sales_data.get('quantity', ''),
-            sales_data.get('unit_price', ''),
-            sales_data.get('total_price', ''),
-            sales_data.get('price_details', ''),
-            entry.get('url', '')
-        ])
-    
-    response = Response(
-        output.getvalue(),
-        mimetype='text/csv; charset=utf-8',
-        headers={
-            'Content-Disposition': f'attachment; filename=pharmacy-sales-{datetime.now().strftime("%Y-%m-%d")}.csv'
-        }
-    )
-    
-    return response
 
 @app.route('/api/data')
 def api_data():
