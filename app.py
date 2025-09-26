@@ -178,7 +178,7 @@ class OptimizedDataCollector:
                         content_lines.append(text)
 
             # 🔥 FIX: extract all price/discount blocks (not just one)
-            price_sections = position.select('div.NDS')
+            price_sections = position.select('class.checkPosition')
             for price_section in price_sections:
                 price_texts = price_section.find_all(text=True, recursive=True)
                 for text in price_texts:
