@@ -6,7 +6,6 @@
     <title>Pharmacy Sales Data</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
@@ -19,21 +18,7 @@
                 <button class="view-toggle" onclick="toggleCompact()">
                     <i class="fas fa-compress"></i> Compact
                 </button>
-                <button class="btn btn-primary" onclick="toggleChart()">
-                    <i class="fas fa-chart-bar"></i> Top Products
-                </button>
             </div>
-        </div>
-
-        <!-- Top Products Chart (Initially Hidden) -->
-        <div id="chartContainer" style="display: none; margin: 2rem 0; background: var(--card-bg); padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1rem;">
-                <h3>Top 10 Products by Quantity Sold</h3>
-                <button class="btn btn-secondary" onclick="toggleChart()">
-                    <i class="fas fa-times"></i> Close
-                </button>
-            </div>
-            <canvas id="topProductsChart" height="400"></canvas>
         </div>
 
         <div class="totals-grid">
@@ -63,21 +48,11 @@
 
         <h2>Sales Records</h2>
 
-        <div style="margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+        <div style="margin-bottom: 1rem;">
             <input type="text" id="tableSearch" placeholder="Search by product, barcode, or UKTZED..." style="padding: 0.5rem; width: 100%; max-width: 400px;">
-            <div style="display: flex; gap: 0.5rem; align-items: center;">
-                <label for="rowsPerPage">Rows per page:</label>
-                <select id="rowsPerPage" onchange="changeRowsPerPage()" style="padding: 0.5rem;">
-                    <option value="10">10</option>
-                    <option value="25" selected>25</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                    <option value="0">All</option>
-                </select>
-            </div>
         </div>
 
-        <table class="sales-table" id="salesTable">
+        <table class="sales-table">
             <thead>
                 <tr>
                     <th onclick="sortTable(0)">Timestamp <i class="fas fa-sort"></i></th>
@@ -90,7 +65,7 @@
                     <th>Actions</th>
                 </tr>
             </thead>
-            <tbody id="tableBody">
+            <tbody>
                 {% for entry in entries %}
                 <tr>
                     <td data-sort="{{ entry.timestamp }}">{{ entry.timestamp[:19] if entry.timestamp else 'N/A' }}</td>
@@ -126,80 +101,50 @@
             </tbody>
         </table>
 
-        <!-- Pagination Controls -->
-        <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin: 1rem 0; padding: 1rem; background: var(--card-bg); border-radius: 8px;">
-            <div>
-                <span id="pageInfo">Page 1 of 1</span>
-                <span id="rowsInfo" style="margin-left: 1rem;">Showing 0 of {{ total_entries }} entries</span>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <button class="btn btn-secondary" onclick="changePage(-1)" id="prevBtn" disabled>
-                    <i class="fas fa-chevron-left"></i> Previous
-                </button>
-                <div id="pageNumbers" style="display: flex; gap: 0.25rem;"></div>
-                <button class="btn btn-secondary" onclick="changePage(1)" id="nextBtn" disabled>
-                    Next <i class="fas fa-chevron-right"></i>
-                </button>
-            </div>
-        </div>
-
         <!-- Mobile Cards -->
-        <div id="mobileCards">
-            {% for entry in entries %}
-            <div class="mobile-card">
-                <div class="card-row">
-                    <span class="card-label">Time:</span>
-                    <span>{{ entry.timestamp[:19] if entry.timestamp else 'N/A' }}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">Product:</span>
-                    <span>{{ entry.sales_data.product_name if entry.sales_data and entry.sales_data.product_name else 'N/A' }}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">UKTZED:</span>
-                    <span>{{ entry.sales_data.uktzed if entry.sales_data and entry.sales_data.uktzed else 'N/A' }}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">Barcode:</span>
-                    <span>{{ entry.sales_data.barcode if entry.sales_data and entry.sales_data.barcode else 'N/A' }}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">Qty:</span>
-                    <span>{{ entry.sales_data.quantity if entry.sales_data and entry.sales_data.quantity else 'N/A' }}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">Price:</span>
-                    <span>
-                        {% if entry.sales_data and entry.sales_data.total_price %}
-                            {{ "%.2f"|format(entry.sales_data.total_price|float) }} ₴
-                        {% else %}
-                            N/A
-                        {% endif %}
-                    </span>
-                </div>
-                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                    <button class="btn btn-copy" onclick="copySaleData({{ loop.index0 }})" style="flex: 1;">
-                        <i class="fas fa-copy"></i> Copy
-                    </button>
-                </div>
+        {% for entry in entries %}
+        <div class="mobile-card">
+            <div class="card-row">
+                <span class="card-label">Time:</span>
+                <span>{{ entry.timestamp[:19] if entry.timestamp else 'N/A' }}</span>
             </div>
-            {% else %}
-            <div class="mobile-card">
-                <div style="text-align: center;">No sales data available</div>
+            <div class="card-row">
+                <span class="card-label">Product:</span>
+                <span>{{ entry.sales_data.product_name if entry.sales_data and entry.sales_data.product_name else 'N/A' }}</span>
             </div>
-            {% endfor %}
+            <div class="card-row">
+                <span class="card-label">UKTZED:</span>
+                <span>{{ entry.sales_data.uktzed if entry.sales_data and entry.sales_data.uktzed else 'N/A' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Barcode:</span>
+                <span>{{ entry.sales_data.barcode if entry.sales_data and entry.sales_data.barcode else 'N/A' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Qty:</span>
+                <span>{{ entry.sales_data.quantity if entry.sales_data and entry.sales_data.quantity else 'N/A' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Price:</span>
+                <span>
+                    {% if entry.sales_data and entry.sales_data.total_price %}
+                        {{ "%.2f"|format(entry.sales_data.total_price|float) }} ₴
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </span>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button class="btn btn-copy" onclick="copySaleData({{ loop.index0 }})" style="flex: 1;">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
         </div>
-
-        <!-- Mobile Pagination -->
-        <div class="pagination-controls" style="display: none; justify-content: center; gap: 1rem; margin: 1rem 0;">
-            <button class="btn btn-secondary" onclick="changePage(-1)" id="mobilePrevBtn" disabled>
-                <i class="fas fa-chevron-left"></i>
-            </button>
-            <span id="mobilePageInfo">Page 1 of 1</span>
-            <button class="btn btn-secondary" onclick="changePage(1)" id="mobileNextBtn" disabled>
-                <i class="fas fa-chevron-right"></i>
-            </button>
+        {% else %}
+        <div class="mobile-card">
+            <div style="text-align: center;">No sales data available</div>
         </div>
+        {% endfor %}
 
         <div class="footer">
             <p>Last updated: {{ now.strftime('%Y-%m-%d %H:%M:%S') }}</p>
@@ -208,13 +153,6 @@
     </div>
 
     <script>
-        // Store entries data for JavaScript access
-        const salesData = {{ entries | tojson }};
-        let currentPage = 1;
-        let rowsPerPage = 25;
-        let filteredData = [...salesData];
-        let chart = null;
-
         // Theme management
         function toggleTheme() {
             const body = document.body;
@@ -234,255 +172,22 @@
             localStorage.setItem('compact', document.body.classList.contains('compact'));
         }
 
-        // Chart visibility
-        function toggleChart() {
-            const chartContainer = document.getElementById('chartContainer');
-            const isVisible = chartContainer.style.display !== 'none';
-            
-            chartContainer.style.display = isVisible ? 'none' : 'block';
-            
-            if (!isVisible && !chart) {
-                createTopProductsChart();
-            }
-        }
-
-        // Create top products chart
-        function createTopProductsChart() {
-            const ctx = document.getElementById('topProductsChart').getContext('2d');
-            
-            // Calculate top products by quantity
-            const productQuantities = {};
-            salesData.forEach(entry => {
-                if (entry.sales_data && entry.sales_data.product_name && entry.sales_data.quantity) {
-                    const product = entry.sales_data.product_name;
-                    const quantity = parseInt(entry.sales_data.quantity) || 1;
-                    
-                    if (product !== 'N/A') {
-                        productQuantities[product] = (productQuantities[product] || 0) + quantity;
-                    }
-                }
-            });
-            
-            // Sort by quantity and take top 10
-            const topProducts = Object.entries(productQuantities)
-                .sort(([,a], [,b]) => b - a)
-                .slice(0, 10);
-            
-            const labels = topProducts.map(([product]) => 
-                product.length > 30 ? product.substring(0, 30) + '...' : product
-            );
-            const quantities = topProducts.map(([, quantity]) => quantity);
-            
-            chart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Quantity Sold',
-                        data: quantities,
-                        backgroundColor: 'rgba(54, 162, 235, 0.8)',
-                        borderColor: 'rgba(54, 162, 235, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Quantity Sold'
-                            }
-                        },
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Products'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                title: function(context) {
-                                    const index = context[0].dataIndex;
-                                    return topProducts[index][0]; // Full product name
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Pagination functions
-        function changeRowsPerPage() {
-            rowsPerPage = parseInt(document.getElementById('rowsPerPage').value);
-            currentPage = 1;
-            updateTable();
-            updatePagination();
-        }
-
-        function changePage(direction) {
-            const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-            currentPage += direction;
-            
-            if (currentPage < 1) currentPage = 1;
-            if (currentPage > totalPages) currentPage = totalPages;
-            
-            updateTable();
-            updatePagination();
-        }
-
-        function goToPage(page) {
-            const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-            if (page >= 1 && page <= totalPages) {
-                currentPage = page;
-                updateTable();
-                updatePagination();
-            }
-        }
-
-        function updateTable() {
-            const tableBody = document.getElementById('tableBody');
-            const mobileCards = document.getElementById('mobileCards');
-            
-            if (rowsPerPage === 0) {
-                // Show all rows
-                tableBody.innerHTML = '';
-                mobileCards.innerHTML = '';
-                
-                filteredData.forEach((entry, index) => {
-                    tableBody.appendChild(createTableRow(entry, index));
-                    mobileCards.appendChild(createMobileCard(entry, index));
-                });
-            } else {
-                // Paginated view
-                const startIndex = (currentPage - 1) * rowsPerPage;
-                const endIndex = startIndex + rowsPerPage;
-                const pageData = filteredData.slice(startIndex, endIndex);
-                
-                tableBody.innerHTML = '';
-                mobileCards.innerHTML = '';
-                
-                pageData.forEach((entry, index) => {
-                    const globalIndex = startIndex + index;
-                    tableBody.appendChild(createTableRow(entry, globalIndex));
-                    mobileCards.appendChild(createMobileCard(entry, globalIndex));
-                });
-            }
-        }
-
-        function createTableRow(entry, index) {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td data-sort="${entry.timestamp || ''}">${entry.timestamp ? entry.timestamp.substring(0, 19) : 'N/A'}</td>
-                <td>${entry.sales_data?.product_name || 'N/A'}</td>
-                <td>${entry.sales_data?.uktzed || 'N/A'}</td>
-                <td>${entry.sales_data?.barcode || 'N/A'}</td>
-                <td>${entry.sales_data?.quantity || 'N/A'}</td>
-                <td data-sort="${entry.sales_data?.unit_price || 0}">
-                    ${entry.sales_data?.unit_price ? parseFloat(entry.sales_data.unit_price).toFixed(2) + ' ₴' : 'N/A'}
-                </td>
-                <td data-sort="${entry.sales_data?.total_price || 0}">
-                    ${entry.sales_data?.total_price ? parseFloat(entry.sales_data.total_price).toFixed(2) + ' ₴' : 'N/A'}
-                </td>
-                <td>
-                    <button class="btn-copy" onclick="copySaleData(${index})">
-                        <i class="fas fa-copy"></i>
-                    </button>
-                </td>
-            `;
-            return row;
-        }
-
-        function createMobileCard(entry, index) {
-            const card = document.createElement('div');
-            card.className = 'mobile-card';
-            card.innerHTML = `
-                <div class="card-row">
-                    <span class="card-label">Time:</span>
-                    <span>${entry.timestamp ? entry.timestamp.substring(0, 19) : 'N/A'}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">Product:</span>
-                    <span>${entry.sales_data?.product_name || 'N/A'}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">UKTZED:</span>
-                    <span>${entry.sales_data?.uktzed || 'N/A'}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">Barcode:</span>
-                    <span>${entry.sales_data?.barcode || 'N/A'}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">Qty:</span>
-                    <span>${entry.sales_data?.quantity || 'N/A'}</span>
-                </div>
-                <div class="card-row">
-                    <span class="card-label">Price:</span>
-                    <span>
-                        ${entry.sales_data?.total_price ? parseFloat(entry.sales_data.total_price).toFixed(2) + ' ₴' : 'N/A'}
-                    </span>
-                </div>
-                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                    <button class="btn btn-copy" onclick="copySaleData(${index})" style="flex: 1;">
-                        <i class="fas fa-copy"></i> Copy
-                    </button>
-                </div>
-            `;
-            return card;
-        }
-
-        function updatePagination() {
-            const totalPages = rowsPerPage === 0 ? 1 : Math.ceil(filteredData.length / rowsPerPage);
-            const startItem = rowsPerPage === 0 ? 1 : (currentPage - 1) * rowsPerPage + 1;
-            const endItem = rowsPerPage === 0 ? filteredData.length : Math.min(currentPage * rowsPerPage, filteredData.length);
-            
-            // Update page info
-            document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
-            document.getElementById('mobilePageInfo').textContent = `Page ${currentPage} of ${totalPages}`;
-            document.getElementById('rowsInfo').textContent = `Showing ${startItem}-${endItem} of ${filteredData.length} entries`;
-            
-            // Update button states
-            document.getElementById('prevBtn').disabled = currentPage === 1;
-            document.getElementById('nextBtn').disabled = currentPage === totalPages;
-            document.getElementById('mobilePrevBtn').disabled = currentPage === 1;
-            document.getElementById('mobileNextBtn').disabled = currentPage === totalPages;
-            
-            // Update page numbers
-            const pageNumbers = document.getElementById('pageNumbers');
-            pageNumbers.innerHTML = '';
-            
-            for (let i = 1; i <= totalPages; i++) {
-                const button = document.createElement('button');
-                button.className = `btn ${i === currentPage ? 'btn-primary' : 'btn-secondary'}`;
-                button.textContent = i;
-                button.onclick = () => goToPage(i);
-                pageNumbers.appendChild(button);
-            }
-        }
-
         // Table Filtering
         document.getElementById("tableSearch").addEventListener("keyup", function () {
             const filter = this.value.toLowerCase();
-            filteredData = salesData.filter(entry => {
-                const product = entry.sales_data?.product_name?.toLowerCase() || '';
-                const uktzed = entry.sales_data?.uktzed?.toLowerCase() || '';
-                const barcode = entry.sales_data?.barcode?.toLowerCase() || '';
-                
-                return product.includes(filter) || uktzed.includes(filter) || barcode.includes(filter);
+            const rows = document.querySelectorAll(".sales-table tbody tr");
+
+            rows.forEach(row => {
+                const product = row.cells[1]?.textContent.toLowerCase() || "";
+                const uktzed = row.cells[2]?.textContent.toLowerCase() || "";
+                const barcode = row.cells[3]?.textContent.toLowerCase() || "";
+
+                if (product.includes(filter) || uktzed.includes(filter) || barcode.includes(filter)) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                }
             });
-            
-            currentPage = 1;
-            updateTable();
-            updatePagination();
         });
 
         // Table Sorting
@@ -523,7 +228,30 @@
             rows.forEach(row => table.appendChild(row));
         }
 
-        // Copy function
+        // Initialize theme and compact view
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load saved theme
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.body.setAttribute('data-theme', savedTheme);
+                const icon = document.querySelector('.theme-toggle i');
+                icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            }
+
+            // Load compact view
+            if (localStorage.getItem('compact') === 'true') {
+                document.body.classList.add('compact');
+            }
+
+            // Auto-refresh every 60 seconds
+            setTimeout(() => {
+                location.reload();
+            }, 60000);
+        });
+
+        // Store entries data for JavaScript access
+        const salesData = {{ entries | tojson }};
+
         function copySaleData(index) {
             const sale = salesData[index];
             const text = `Pharmacy Sale Record:
@@ -533,7 +261,7 @@ UKTZED: ${sale.sales_data?.uktzed || 'N/A'}
 Barcode: ${sale.sales_data?.barcode || 'N/A'}
 Quantity: ${sale.sales_data?.quantity || 'N/A'}
 Unit Price: ${sale.sales_data?.unit_price || 'N/A'} ₴
-Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴`;
+Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴;
 
             copyToClipboard(text);
         }
@@ -561,41 +289,6 @@ Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴`;
                 notification.remove();
             }, 3000);
         }
-
-        // Initialize theme and compact view
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load saved theme
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme) {
-                document.body.setAttribute('data-theme', savedTheme);
-                const icon = document.querySelector('.theme-toggle i');
-                icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            }
-
-            // Load compact view
-            if (localStorage.getItem('compact') === 'true') {
-                document.body.classList.add('compact');
-            }
-
-            // Initialize pagination
-            updateTable();
-            updatePagination();
-
-            // Auto-refresh every 60 seconds
-            setTimeout(() => {
-                location.reload();
-            }, 60000);
-
-            // Show/hide pagination based on screen size
-            function handleResize() {
-                const isMobile = window.innerWidth < 768;
-                document.querySelector('.pagination-controls').style.display = isMobile ? 'none' : 'flex';
-                document.querySelector('.pagination-controls:last-child').style.display = isMobile ? 'flex' : 'none';
-            }
-
-            window.addEventListener('resize', handleResize);
-            handleResize();
-        });
     </script>
 </body>
 </html>
