@@ -531,6 +531,108 @@ def export_csv():
     
     return response
 
+def parse_data_file():
+    """Parse the collected_data.txt file and return structured sales data"""
+    data_file = 'collected_data.txt'
+    
+    if not os.path.exists(data_file):
+        return []
+    
+    entries = []
+    current_entry = {}
+    in_content_section = False
+    
+    with open(data_file, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    
+    for line in lines:
+        line = line.strip()
+        
+        if line.startswith('=== Data collected at '):
+            if current_entry:
+                # Process the previous entry
+                if current_entry.get('content'):
+                    current_entry['raw_content'] = '\n'.join(current_entry['content'])
+                    current_entry['sales_data'] = extract_sales_data(current_entry['raw_content'])
+                entries.append(current_entry)
+            
+            # Start new entry
+            current_entry = {
+                'timestamp': line.replace('=== Data collected at ', '').replace(' ===', ''),
+                'url': '',
+                'content': [],
+                'raw_content': '',
+                'sales_data': {}
+            }
+            in_content_section = False
+            
+        elif line.startswith('URL: '):
+            current_entry['url'] = line.replace('URL: ', '')
+            
+        elif line == 'Content:':
+            in_content_section = True
+            
+        elif line.startswith('=' * 50):
+            # End of current entry (handled at next entry start)
+            in_content_section = False
+            
+        elif line and in_content_section:
+            # Content line
+            current_entry['content'].append(line)
+    
+    # Add the last entry if it exists and has content
+    if current_entry and current_entry.get('content'):
+        current_entry['raw_content'] = '\n'.join(current_entry['content'])
+        current_entry['sales_data'] = extract_sales_data(current_entry['raw_content'])
+        entries.append(current_entry)
+    
+    # Filter out any empty entries
+    entries = [entry for entry in entries if entry.get('content')]
+    
+    return entries[::-1]  # Reverse to show latest first
+
+@app.route('/export/excel')
+def export_excel():
+    """Export data as Excel file (UTF-8 encoded) with proper price formatting"""
+    entries = parse_data_file()
+    
+    # Create CSV with UTF-8 BOM for Excel compatibility
+    output = io.StringIO()
+    output.write('\ufeff')  # UTF-8 BOM for Excel
+    
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow([
+        'Timestamp', 'Product', 'UKTZED', 'Barcode', 
+        'Quantity', 'Unit Price (UAH)', 'Total Price (UAH)', 'Price Details', 'URL'
+    ])
+    
+    # Write data
+    for entry in entries:
+        sales_data = entry.get('sales_data', {})
+        writer.writerow([
+            entry.get('timestamp', ''),
+            sales_data.get('product_name', ''),
+            sales_data.get('uktzed', ''),
+            sales_data.get('barcode', ''),
+            sales_data.get('quantity', ''),
+            sales_data.get('unit_price', ''),
+            sales_data.get('total_price', ''),
+            sales_data.get('price_details', ''),
+            entry.get('url', '')
+        ])
+    
+    response = Response(
+        output.getvalue(),
+        mimetype='text/csv; charset=utf-8',
+        headers={
+            'Content-Disposition': f'attachment; filename=pharmacy-sales-{datetime.now().strftime("%Y-%m-%d")}.csv'
+        }
+    )
+    
+    return response
+
 @app.route('/api/data')
 def api_data():
     """API endpoint for JSON data"""
