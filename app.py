@@ -532,6 +532,12 @@ def export_csv():
     
     for entry in entries:
         sales_data = entry.get('sales_data', {})
+        
+        # Handle case where sales_data might be a list
+        if isinstance(sales_data, list):
+            # If it's a list, take the first item or empty dict
+            sales_data = sales_data[0] if sales_data else {}
+        
         writer.writerow([
             entry.get('timestamp', ''),
             sales_data.get('product_name', ''),
@@ -568,6 +574,12 @@ def export_excel():
     
     for entry in entries:
         sales_data = entry.get('sales_data', {})
+        
+        # Handle case where sales_data might be a list
+        if isinstance(sales_data, list):
+            # If it's a list, take the first item or empty dict
+            sales_data = sales_data[0] if sales_data else {}
+        
         row = [
             entry.get('timestamp', ''),
             sales_data.get('product_name', ''),
