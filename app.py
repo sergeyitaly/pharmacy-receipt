@@ -6,7 +6,7 @@ import io
 import time
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -19,6 +19,7 @@ from typing import Optional, Dict, List, Tuple
 import requests
 from contextlib import contextmanager
 import json
+from collections import defaultdict, Counter
 
 # Load environment variables
 load_dotenv('config/.env')
@@ -300,6 +301,28 @@ class DataManager:
         except Exception as e:
             logger.error(f"Error loading data: {e}")
             return []
+    
+    def get_last_7_days_data(self) -> List[Dict]:
+        """Get data from the last 7 days"""
+        try:
+            data = self.load_data()
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            
+            recent_data = []
+            for entry in data:
+                try:
+                    entry_time = datetime.fromisoformat(entry['timestamp'].replace('Z', '+00:00'))
+                    if entry_time >= seven_days_ago:
+                        recent_data.append(entry)
+                except Exception as e:
+                    logger.warning(f"Error parsing timestamp for entry: {e}")
+                    continue
+            
+            logger.info(f"Found {len(recent_data)} entries from last 7 days")
+            return recent_data
+        except Exception as e:
+            logger.error(f"Error getting last 7 days data: {e}")
+            return []
 
 def extract_sales_data(content: str) -> List[Dict[str, str]]:
     """Extract sales data from content that may contain multiple items"""
@@ -425,6 +448,52 @@ def _calculate_missing_prices(sales_data: Dict):
     except (ValueError, ZeroDivisionError) as e:
         logger.warning(f"Price calculation error: {e}")
 
+def get_top_selling_products_last_7_days() -> List[Dict]:
+    """Get top 10 selling products from last 7 days"""
+    try:
+        data = data_manager.get_last_7_days_data()
+        
+        # Aggregate sales by product
+        product_sales = defaultdict(lambda: {'quantity': 0, 'revenue': 0.0, 'occurrences': 0})
+        
+        for entry in data:
+            sales_data_list = entry.get('sales_data', [])
+            if isinstance(sales_data_list, list):
+                for item in sales_data_list:
+                    if item and item.get('product_name'):
+                        product_name = item['product_name']
+                        quantity = int(item.get('quantity', 1))
+                        try:
+                            revenue = float(item.get('total_price', '0').replace(',', '.'))
+                        except (ValueError, TypeError):
+                            revenue = 0.0
+                        
+                        product_sales[product_name]['quantity'] += quantity
+                        product_sales[product_name]['revenue'] += revenue
+                        product_sales[product_name]['occurrences'] += 1
+        
+        # Convert to list and sort by revenue (descending)
+        top_products = []
+        for product_name, stats in product_sales.items():
+            top_products.append({
+                'product_name': product_name,
+                'total_quantity': stats['quantity'],
+                'total_revenue': round(stats['revenue'], 2),
+                'occurrences': stats['occurrences'],
+                'average_revenue_per_sale': round(stats['revenue'] / stats['occurrences'], 2) if stats['occurrences'] > 0 else 0
+            })
+        
+        # Sort by total revenue descending and take top 10
+        top_products.sort(key=lambda x: x['total_revenue'], reverse=True)
+        top_10 = top_products[:10]
+        
+        logger.info(f"Found {len(top_10)} top selling products")
+        return top_10
+        
+    except Exception as e:
+        logger.error(f"Error getting top selling products: {e}")
+        return []
+
 def collect_and_save_data():
     """Optimized data collection with configurable intervals"""
     url = os.getenv('TARGET_URL', 'example.com')
@@ -510,10 +579,14 @@ def index():
     
     totals = calculate_totals(flattened_entries)
     
+    # Get top selling products for the chart
+    top_products = get_top_selling_products_last_7_days()
+    
     return render_template('index.html', 
                          entries=flattened_entries, 
                          total_entries=len(flattened_entries),
                          totals=totals,
+                         top_products=top_products,
                          now=datetime.now())
 
 
@@ -686,6 +759,12 @@ def api_totals():
     entries = data_manager.load_data()
     totals = calculate_totals(entries)
     return jsonify(totals)
+
+@app.route('/api/top-products')
+def api_top_products():
+    """API endpoint for top selling products"""
+    top_products = get_top_selling_products_last_7_days()
+    return jsonify(top_products)
 
 @app.route('/status')
 def status():
