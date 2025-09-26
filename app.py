@@ -44,33 +44,6 @@ class OptimizedDataCollector:
             'Upgrade-Insecure-Requests': '1',
         })
     
-    def _try_direct_request(self) -> Optional[str]:
-        """Try to fetch content using requests first (lighter than Selenium)"""
-        try:
-            logger.info(f"Attempting direct HTTP request to: {self.url}")
-            response = self.session.get(self.url, timeout=15, allow_redirects=True)
-            logger.info(f"HTTP Status Code: {response.status_code}")
-            logger.info(f"Response length: {len(response.text)} characters")
-            
-            if response.status_code == 200:
-                # Check if the content contains our target elements
-                has_chekPosition = 'chekPosition' in response.text
-                has_check = 'check' in response.text
-                logger.info(f"Contains chekPosition: {has_chekPosition}, Contains check: {has_check}")
-                
-                if has_chekPosition or has_check:
-                    return response.text
-                else:
-                    # Log a sample of the response for debugging
-                    sample = response.text[:500] if len(response.text) > 500 else response.text
-                    logger.info(f"Response sample: {sample}")
-            else:
-                logger.warning(f"HTTP request failed with status: {response.status_code}")
-            return None
-        except Exception as e:
-            logger.warning(f"Direct request failed: {str(e)}")
-            return None
-    
     @contextmanager
     def _get_driver(self):
         """Context manager for driver lifecycle"""
@@ -226,22 +199,13 @@ class OptimizedDataCollector:
         try:
             logger.info(f"Fetching content from: {self.url}")
             
-            # Try direct HTTP request first
-            html = self._try_direct_request()
-            
-            # Fall back to Selenium if direct request fails
-            if not html:
-                logger.info("Direct request failed, using Selenium")
-                with self._get_driver() as driver:
-                    logger.info(f"Navigating to URL: {self.url}")
-                    driver.get(self.url)
-                    
-                    # Extract content using Selenium
-                    content = self._extract_content_selenium(driver)
-            else:
-                # Extract content from direct HTTP response
-                content = self._extract_content_from_html(html)
-            
+            with self._get_driver() as driver:
+                logger.info(f"Navigating to URL: {self.url}")
+                driver.get(self.url)
+                
+                # Extract content using Selenium
+                content = self._extract_content_selenium(driver)
+
             if content:
                 logger.info(f"Content extracted successfully ({len(content)} characters)")
                 if content != self.last_content:
