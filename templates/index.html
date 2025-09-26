@@ -356,118 +356,169 @@
         });
 
         // Top Products Chart
-        function renderTopProductsChart() {
-            const topProducts = {{ top_products | tojson | safe }};
-            
-            console.log('Top products data:', topProducts); // Debug log
-            
-            if (topProducts && topProducts.length > 0) {
-                const ctx = document.getElementById('topProductsChart');
+            function renderTopProductsChart() {
+                const topProducts = {{ top_products | tojson | safe }};
                 
-                if (!ctx) {
-                    console.error('Chart canvas element not found');
-                    return;
-                }
-                
-                const productNames = topProducts.map(p => 
-                    p.product_name && p.product_name.length > 30 ? 
-                    p.product_name.substring(0, 30) + '...' : 
-                    (p.product_name || 'Unknown Product')
-                );
-                const revenues = topProducts.map(p => p.total_revenue || 0);
-                const quantities = topProducts.map(p => p.total_quantity || 0);
-                
-                // Destroy existing chart if it exists
-                if (window.topProductsChartInstance) {
-                    window.topProductsChartInstance.destroy();
-                }
-                
-                window.topProductsChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: productNames,
-                        datasets: [{
-                            label: 'Total Revenue (₴)',
-                            data: revenues,
-                            backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                            borderColor: 'rgba(54, 162, 235, 1)',
-                            borderWidth: 1,
-                            yAxisID: 'y'
-                        }, {
-                            label: 'Quantity Sold',
-                            data: quantities,
-                            backgroundColor: 'rgba(255, 99, 132, 0.6)',
-                            borderColor: 'rgba(255, 99, 132, 1)',
-                            borderWidth: 1,
-                            yAxisID: 'y1',
-                            type: 'line'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: {
-                            mode: 'index',
-                            intersect: false,
+                console.log('Top products data:', topProducts);
+
+                if (topProducts && topProducts.length > 0) {
+                    const ctx = document.getElementById('topProductsChart');
+
+                    if (!ctx) {
+                        console.error('Chart canvas element not found');
+                        return;
+                    }
+
+                    const productNames = topProducts.map(p =>
+                        p.product_name && p.product_name.length > 30 ?
+                            p.product_name.substring(0, 30) + '…' :
+                            (p.product_name || 'Unknown Product')
+                    );
+
+                    const revenues = topProducts.map(p => p.total_revenue || 0);
+                    const quantities = topProducts.map(p => p.total_quantity || 0);
+
+                    // Destroy existing chart if it exists
+                    if (window.topProductsChartInstance) {
+                        window.topProductsChartInstance.destroy();
+                    }
+
+                    window.topProductsChartInstance = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: productNames,
+                            datasets: [
+                                {
+                                    label: '💰 Total Revenue (₴)',
+                                    data: revenues,
+                                    yAxisID: 'y',
+                                    borderWidth: 2,
+                                    borderRadius: 12,
+                                    backgroundColor: ctx => {
+                                        const chart = ctx.chart;
+                                        const {ctx: context, chartArea} = chart;
+                                        if (!chartArea) return 'rgba(54,162,235,0.6)';
+                                        return getGradient(context, chartArea, '#36A2EB', '#4BC0C0');
+                                    },
+                                    borderColor: '#0077b6'
+                                },
+                                {
+                                    label: '📦 Quantity Sold',
+                                    data: quantities,
+                                    yAxisID: 'y1',
+                                    type: 'line',
+                                    borderColor: '#ff6384',
+                                    backgroundColor: 'rgba(255,99,132,0.2)',
+                                    tension: 0.3,
+                                    pointStyle: 'circle',
+                                    pointRadius: 6,
+                                    pointHoverRadius: 8,
+                                    fill: false,
+                                    borderWidth: 3
+                                }
+                            ]
                         },
-                        scales: {
-                            x: {
-                                ticks: {
-                                    maxRotation: 45,
-                                    minRotation: 0
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false,
+                            },
+                            scales: {
+                                x: {
+                                    ticks: {
+                                        maxRotation: 45,
+                                        minRotation: 0,
+                                        color: '#333',
+                                        font: { weight: 'bold' }
+                                    },
+                                    grid: { drawOnChartArea: false }
+                                },
+                                y: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'left',
+                                    title: {
+                                        display: true,
+                                        text: 'Revenue (₴)',
+                                        color: '#0077b6',
+                                        font: { weight: 'bold' }
+                                    },
+                                    beginAtZero: true
+                                },
+                                y1: {
+                                    type: 'linear',
+                                    display: true,
+                                    position: 'right',
+                                    title: {
+                                        display: true,
+                                        text: 'Quantity',
+                                        color: '#ff6384',
+                                        font: { weight: 'bold' }
+                                    },
+                                    grid: { drawOnChartArea: false },
+                                    beginAtZero: true
                                 }
                             },
-                            y: {
-                                type: 'linear',
-                                display: true,
-                                position: 'left',
+                            plugins: {
                                 title: {
                                     display: true,
-                                    text: 'Revenue (₴)'
+                                    text: '🌟 Top 10 Selling Products (Last 7 Days)',
+                                    font: { size: 20, weight: 'bold' },
+                                    color: '#111'
                                 },
-                                beginAtZero: true
-                            },
-                            y1: {
-                                type: 'linear',
-                                display: true,
-                                position: 'right',
-                                title: {
-                                    display: true,
-                                    text: 'Quantity'
+                                legend: {
+                                    position: 'top',
+                                    labels: { font: { size: 14, weight: '600' } }
                                 },
-                                grid: {
-                                    drawOnChartArea: false,
-                                },
-                                beginAtZero: true
-                            }
-                        },
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: 'Top 10 Selling Products (Last 7 Days)'
-                            },
-                            legend: {
-                                position: 'top'
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        if (context.dataset.label.includes("Revenue")) {
-                                            return `${context.dataset.label}: ₴${context.parsed.y.toFixed(2)}`;
+                                tooltip: {
+                                    backgroundColor: '#222',
+                                    titleColor: '#fff',
+                                    bodyColor: '#eee',
+                                    callbacks: {
+                                        label: function (context) {
+                                            if (context.dataset.label.includes("Revenue")) {
+                                                return `${context.dataset.label}: ₴${context.parsed.y.toFixed(2)}`;
+                                            }
+                                            return `${context.dataset.label}: ${context.parsed.y}`;
                                         }
-                                        return `${context.dataset.label}: ${context.parsed.y}`;
+                                    }
+                                },
+                                annotation: {
+                                    annotations: {
+                                        midLine: {
+                                            type: 'line',
+                                            yMin: Math.max(...revenues) / 2,
+                                            yMax: Math.max(...revenues) / 2,
+                                            borderColor: 'rgba(0,0,0,0.2)',
+                                            borderWidth: 2,
+                                            label: {
+                                                content: '50% Revenue Line',
+                                                enabled: true,
+                                                position: 'end'
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                });
-                
-                console.log('Chart rendered successfully');
-            } else {
-                console.log('No chart data available');
+                    });
+
+                    console.log('Chart rendered successfully');
+                } else {
+                    console.log('No chart data available');
+                }
             }
-        }
+
+            // 🌈 Gradient helper function
+            function getGradient(ctx, chartArea, colorStart, colorEnd) {
+                const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                gradient.addColorStop(0, colorStart);
+                gradient.addColorStop(1, colorEnd);
+                return gradient;
+            }
+
 
         // Store entries data for JavaScript access
         const salesData = {{ entries | tojson | safe }};
@@ -480,16 +531,16 @@
             
             const sale = salesData[index];
             const text = `Pharmacy Sale Record:
-Timestamp: ${sale.timestamp || 'N/A'}
-Product: ${sale.sales_data?.product_name || 'N/A'}
-UKTZED: ${sale.sales_data?.uktzed || 'N/A'}
-Barcode: ${sale.sales_data?.barcode || 'N/A'}
-Quantity: ${sale.sales_data?.quantity || 'N/A'}
-Unit Price: ${sale.sales_data?.unit_price || 'N/A'} ₴
-Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴`;
-        
-            copyToClipboard(text);
-        }
+                    Timestamp: ${sale.timestamp || 'N/A'}
+                    Product: ${sale.sales_data?.product_name || 'N/A'}
+                    UKTZED: ${sale.sales_data?.uktzed || 'N/A'}
+                    Barcode: ${sale.sales_data?.barcode || 'N/A'}
+                    Quantity: ${sale.sales_data?.quantity || 'N/A'}
+                    Unit Price: ${sale.sales_data?.unit_price || 'N/A'} ₴
+                    Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴`;
+                            
+                                copyToClipboard(text);
+                            }
 
         function copyToClipboard(text) {
             if (!navigator.clipboard) {
