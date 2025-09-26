@@ -71,13 +71,17 @@
             <tbody>
                 {% for entry in entries %}
                 <tr>
-                    <td>{{ entry.timestamp }}</td>
+                    <td data-sort="{{ entry.timestamp }}">{{ entry.timestamp[:19] }}</td> <!-- Truncate microseconds -->
                     <td>{{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}</td>
                     <td>{{ entry.sales_data.uktzed if entry.sales_data else 'N/A' }}</td>
                     <td>{{ entry.sales_data.barcode if entry.sales_data else 'N/A' }}</td>
                     <td>{{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}</td>
-                    <td>{{ entry.sales_data.unit_price if entry.sales_data else 'N/A' }} ₴</td>
-                    <td>{{ entry.sales_data.total_price if entry.sales_data else 'N/A' }} ₴</td>
+                    <td data-sort="{{ entry.sales_data.unit_price if entry.sales_data else 0 }}">
+                        {{ "%.2f"|format(entry.sales_data.unit_price) if entry.sales_data and entry.sales_data.unit_price else 'N/A' }} ₴
+                    </td>
+                    <td data-sort="{{ entry.sales_data.total_price if entry.sales_data else 0 }}">
+                        {{ "%.2f"|format(entry.sales_data.total_price) if entry.sales_data and entry.sales_data.total_price else 'N/A' }} ₴
+                    </td>
                     <td>
                         <a href="{{ entry.url }}" target="_blank" style="margin-right: 0.5rem;">
                             <i class="fas fa-external-link-alt"></i>
@@ -100,7 +104,7 @@
         <div class="mobile-card">
             <div class="card-row">
                 <span class="card-label">Time:</span>
-                <span>{{ entry.timestamp }}</span>
+                <span>{{ entry.timestamp[:19] }}</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Product:</span>
@@ -108,7 +112,7 @@
             </div>
             <div class="card-row">
                 <span class="card-label">Price:</span>
-                <span>{{ entry.sales_data.total_price if entry.sales_data else 'N/A' }} ₴</span>
+                <span>{{ "%.2f"|format(entry.sales_data.total_price) if entry.sales_data and entry.sales_data.total_price else 'N/A' }} ₴</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Qty:</span>
@@ -183,21 +187,29 @@
             sortDirection[columnIndex] = !sortDirection[columnIndex];
 
             rows.sort((a, b) => {
-                let valA = a.cells[columnIndex].innerText.trim();
-                let valB = b.cells[columnIndex].innerText.trim();
+                // Use data-sort attribute if available, otherwise use text content
+                let valA = a.cells[columnIndex].getAttribute('data-sort') || a.cells[columnIndex].innerText.trim();
+                let valB = b.cells[columnIndex].getAttribute('data-sort') || b.cells[columnIndex].innerText.trim();
 
                 // Convert to numbers if possible
                 const numA = parseFloat(valA.replace(/[^\d.-]/g, ""));
                 const numB = parseFloat(valB.replace(/[^\d.-]/g, ""));
+                
                 if (!isNaN(numA) && !isNaN(numB)) {
-                    valA = numA;
-                    valB = numB;
+                    // Numeric comparison
+                    return sortDirection[columnIndex] ? numA - numB : numB - numA;
+                } else {
+                    // String comparison
+                    if (valA < valB) return sortDirection[columnIndex] ? -1 : 1;
+                    if (valA > valB) return sortDirection[columnIndex] ? 1 : -1;
+                    return 0;
                 }
-
-                if (valA < valB) return sortDirection[columnIndex] ? -1 : 1;
-                if (valA > valB) return sortDirection[columnIndex] ? 1 : -1;
-                return 0;
             });
+
+            // Clear table
+            while (table.firstChild) {
+                table.removeChild(table.firstChild);
+            }
 
             // Append sorted rows back
             rows.forEach(row => table.appendChild(row));
@@ -230,14 +242,14 @@
         function copySaleData(index) {
             const sale = salesData[index];
             const text = `Pharmacy Sale Record:
-                Timestamp: ${sale.timestamp}
-                Product: ${sale.sales_data?.product_name || 'N/A'}
-                UKTZED: ${sale.sales_data?.uktzed || 'N/A'}
-                Barcode: ${sale.sales_data?.barcode || 'N/A'}
-                Quantity: ${sale.sales_data?.quantity || 'N/A'}
-                Unit Price: ${sale.sales_data?.unit_price || 'N/A'} ₴
-                Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴
-                URL: ${sale.url}`;
+Timestamp: ${sale.timestamp}
+Product: ${sale.sales_data?.product_name || 'N/A'}
+UKTZED: ${sale.sales_data?.uktzed || 'N/A'}
+Barcode: ${sale.sales_data?.barcode || 'N/A'}
+Quantity: ${sale.sales_data?.quantity || 'N/A'}
+Unit Price: ${sale.sales_data?.unit_price || 'N/A'} ₴
+Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴
+URL: ${sale.url}`;
 
             copyToClipboard(text);
         }
