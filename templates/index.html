@@ -56,24 +56,34 @@
             </div>
             
             <div class="top-products-table">
-                <table class="sales-table">
+                <table class="sales-table" id="topProductsTable">
                     <thead>
                         <tr>
-                            <th>Rank</th>
-                            <th>Product Name</th>
-                            <th>Total Revenue (₴)</th>
-                            <th>Quantity Sold</th>
-                            <th>Occurrences</th>
+                            <th class="sortable" onclick="sortTable('topProductsTable', 0, 'number')">
+                                Rank <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('topProductsTable', 1, 'text')">
+                                Product Name <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('topProductsTable', 2, 'number')">
+                                Total Revenue (₴) <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('topProductsTable', 3, 'number')">
+                                Quantity Sold <span class="sort-icon"></span>
+                            </th>
+                            <th class="sortable" onclick="sortTable('topProductsTable', 4, 'number')">
+                                Occurrences <span class="sort-icon"></span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for product in top_products %}
                         <tr>
-                            <td>{{ loop.index }}</td>
+                            <td data-sort="{{ loop.index }}">{{ loop.index }}</td>
                             <td>{{ product.product_name }}</td>
-                            <td>{{ "%.2f"|format(product.total_revenue) }} ₴</td>
-                            <td>{{ product.total_quantity }}</td>
-                            <td>{{ product.occurrences }}</td>
+                            <td data-sort="{{ product.total_revenue }}">{{ "%.2f"|format(product.total_revenue) }} ₴</td>
+                            <td data-sort="{{ product.total_quantity }}">{{ product.total_quantity }}</td>
+                            <td data-sort="{{ product.occurrences }}">{{ product.occurrences }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -98,16 +108,30 @@
             <input type="text" id="tableSearch" placeholder="Search by product, barcode, or UKTZED..." style="padding: 0.5rem; width: 100%; max-width: 400px;">
         </div>
 
-        <table class="sales-table">
+        <table class="sales-table" id="salesTable">
             <thead>
                 <tr>
-                    <th onclick="sortTable(0)">Timestamp <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(1)">Product <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(2)">UKTZED <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(3)">Barcode <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(4)">Quantity <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(5)">Unit Price <i class="fas fa-sort"></i></th>
-                    <th onclick="sortTable(6)">Total Price <i class="fas fa-sort"></i></th>
+                    <th class="sortable" onclick="sortTable('salesTable', 0, 'datetime')">
+                        Timestamp <span class="sort-icon"></span>
+                    </th>
+                    <th class="sortable" onclick="sortTable('salesTable', 1, 'text')">
+                        Product <span class="sort-icon"></span>
+                    </th>
+                    <th class="sortable" onclick="sortTable('salesTable', 2, 'text')">
+                        UKTZED <span class="sort-icon"></span>
+                    </th>
+                    <th class="sortable" onclick="sortTable('salesTable', 3, 'text')">
+                        Barcode <span class="sort-icon"></span>
+                    </th>
+                    <th class="sortable" onclick="sortTable('salesTable', 4, 'number')">
+                        Quantity <span class="sort-icon"></span>
+                    </th>
+                    <th class="sortable" onclick="sortTable('salesTable', 5, 'number')">
+                        Unit Price <span class="sort-icon"></span>
+                    </th>
+                    <th class="sortable" onclick="sortTable('salesTable', 6, 'number')">
+                        Total Price <span class="sort-icon"></span>
+                    </th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -118,7 +142,9 @@
                     <td>{{ entry.sales_data.product_name if entry.sales_data and entry.sales_data.product_name else 'N/A' }}</td>
                     <td>{{ entry.sales_data.uktzed if entry.sales_data and entry.sales_data.uktzed else 'N/A' }}</td>
                     <td>{{ entry.sales_data.barcode if entry.sales_data and entry.sales_data.barcode else 'N/A' }}</td>
-                    <td>{{ entry.sales_data.quantity if entry.sales_data and entry.sales_data.quantity else 'N/A' }}</td>
+                    <td data-sort="{{ entry.sales_data.quantity if entry.sales_data and entry.sales_data.quantity else 0 }}">
+                        {{ entry.sales_data.quantity if entry.sales_data and entry.sales_data.quantity else 'N/A' }}
+                    </td>
                     <td data-sort="{{ entry.sales_data.unit_price|default(0)|float }}">
                         {% if entry.sales_data and entry.sales_data.unit_price %}
                             {{ "%.2f"|format(entry.sales_data.unit_price|float) }} ₴
@@ -221,7 +247,7 @@
         // Table Filtering
         document.getElementById("tableSearch").addEventListener("keyup", function () {
             const filter = this.value.toLowerCase();
-            const rows = document.querySelectorAll(".sales-table tbody tr");
+            const rows = document.querySelectorAll("#salesTable tbody tr");
 
             rows.forEach(row => {
                 const product = row.cells[1]?.textContent.toLowerCase() || "";
@@ -236,45 +262,76 @@
             });
         });
 
-        // Table Sorting
-        let sortDirection = {};
-        function sortTable(columnIndex) {
-            const table = document.querySelector(".sales-table tbody");
-            const rows = Array.from(table.rows);
-
-            // Toggle sorting direction
-            sortDirection[columnIndex] = !sortDirection[columnIndex];
-
+        // Enhanced Table Sorting
+        const sortStates = {};
+        
+        function sortTable(tableId, columnIndex, dataType) {
+            const table = document.getElementById(tableId);
+            const tbody = table.querySelector('tbody');
+            const rows = Array.from(tbody.rows);
+            const header = table.querySelectorAll('thead th')[columnIndex];
+            
+            // Initialize sort state for this table and column
+            if (!sortStates[tableId]) {
+                sortStates[tableId] = {};
+            }
+            
+            // Toggle sort direction or set to ascending if new column
+            const currentSort = sortStates[tableId][columnIndex];
+            const newDirection = currentSort === 'asc' ? 'desc' : 'asc';
+            
+            // Reset all sort indicators in this table
+            table.querySelectorAll('thead th').forEach(th => {
+                th.classList.remove('sorted-asc', 'sorted-desc');
+            });
+            
+            // Set current column sort indicator
+            header.classList.add(`sorted-${newDirection}`);
+            sortStates[tableId][columnIndex] = newDirection;
+            
+            // Sort rows
             rows.sort((a, b) => {
-                // Use data-sort attribute if available, otherwise use text content
                 let valA = a.cells[columnIndex].getAttribute('data-sort') || a.cells[columnIndex].innerText.trim();
                 let valB = b.cells[columnIndex].getAttribute('data-sort') || b.cells[columnIndex].innerText.trim();
-
-                // Convert to numbers if possible
-                const numA = parseFloat(valA);
-                const numB = parseFloat(valB);
                 
-                if (!isNaN(numA) && !isNaN(numB)) {
-                    // Numeric comparison
-                    return sortDirection[columnIndex] ? numA - numB : numB - numA;
-                } else {
-                    // String comparison (for timestamps and text)
-                    if (valA < valB) return sortDirection[columnIndex] ? -1 : 1;
-                    if (valA > valB) return sortDirection[columnIndex] ? 1 : -1;
-                    return 0;
+                // Handle N/A values
+                if (valA === 'N/A') valA = dataType === 'number' ? -Infinity : '';
+                if (valB === 'N/A') valB = dataType === 'number' ? -Infinity : '';
+                
+                let result = 0;
+                
+                switch (dataType) {
+                    case 'number':
+                        const numA = parseFloat(valA) || 0;
+                        const numB = parseFloat(valB) || 0;
+                        result = numA - numB;
+                        break;
+                    
+                    case 'datetime':
+                        // Convert to timestamp for sorting
+                        const timeA = new Date(valA).getTime();
+                        const timeB = new Date(valB).getTime();
+                        result = timeA - timeB;
+                        break;
+                    
+                    case 'text':
+                    default:
+                        result = valA.localeCompare(valB, undefined, { sensitivity: 'base' });
+                        break;
                 }
+                
+                return newDirection === 'asc' ? result : -result;
             });
-
-            // Clear table
-            while (table.firstChild) {
-                table.removeChild(table.firstChild);
+            
+            // Clear and re-append sorted rows
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
             }
-
-            // Append sorted rows back
-            rows.forEach(row => table.appendChild(row));
+            
+            rows.forEach(row => tbody.appendChild(row));
         }
 
-        // Initialize theme and compact view
+        // Initialize theme, compact view, and sorting
         document.addEventListener('DOMContentLoaded', function() {
             // Load saved theme
             const savedTheme = localStorage.getItem('theme');
