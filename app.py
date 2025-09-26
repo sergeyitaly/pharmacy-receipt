@@ -519,15 +519,21 @@ def index():
 
 @app.route('/export/csv')
 def export_csv():
-    """Export data as CSV"""
+    """Export data as CSV with proper UTF-8 encoding"""
     entries = data_manager.load_data()
     
-    output = io.StringIO()
-    writer = csv.writer(output)
+    # Use BytesIO for binary data with UTF-8 encoding
+    output = io.BytesIO()
+    
+    # Write UTF-8 BOM for Excel compatibility
+    output.write(b'\xef\xbb\xbf')
+    
+    # Create a CSV writer that writes to the BytesIO buffer
+    writer = csv.writer(io.TextIOWrapper(output, encoding='utf-8-sig', write_through=True))
     
     writer.writerow([
         'Timestamp', 'Product', 'UKTZED', 'Barcode', 
-        'Quantity', 'Unit Price (UAH)', 'Total Price (UAH)', 'Price Details', 'URL'
+        'Quantity', 'Unit Price (UAH)', 'Total Price (UAH)', 'Price Details'
     ])
     
     for entry in entries:
@@ -538,20 +544,23 @@ def export_csv():
             # If it's a list, take the first item or empty dict
             sales_data = sales_data[0] if sales_data else {}
         
+        # Ensure all values are properly encoded as strings
         writer.writerow([
-            entry.get('timestamp', ''),
-            sales_data.get('product_name', ''),
-            sales_data.get('uktzed', ''),
-            sales_data.get('barcode', ''),
-            sales_data.get('quantity', ''),
-            sales_data.get('unit_price', ''),
-            sales_data.get('total_price', ''),
-            sales_data.get('price_details', ''),
-            entry.get('url', '')
+            str(entry.get('timestamp', '')),
+            str(sales_data.get('product_name', '')),
+            str(sales_data.get('uktzed', '')),
+            str(sales_data.get('barcode', '')),
+            str(sales_data.get('quantity', '')),
+            str(sales_data.get('unit_price', '')),
+            str(sales_data.get('total_price', '')),
+            str(sales_data.get('price_details', ''))
         ])
     
+    # Get the CSV data and create response
+    csv_data = output.getvalue()
+    
     response = Response(
-        output.getvalue(),
+        csv_data,
         mimetype='text/csv; charset=utf-8',
         headers={
             'Content-Disposition': f'attachment; filename=pharmacy-sales-{datetime.now().strftime("%Y-%m-%d")}.csv'
@@ -559,6 +568,7 @@ def export_csv():
     )
     
     return response
+
 
 @app.route('/export/excel')
 def export_excel():
@@ -588,9 +598,7 @@ def export_excel():
             str(sales_data.get('quantity', '')),
             str(sales_data.get('unit_price', '')),
             str(sales_data.get('total_price', '')),
-            sales_data.get('price_details', ''),
-            entry.get('url', '')
-        ]
+            sales_data.get('price_details', '')        ]
         # Properly escape CSV fields
         csv_row = ','.join(f'"{field.replace('"', '""')}"' for field in row) + '\n'
         output.write(csv_row.encode('utf-8'))
