@@ -26,27 +26,50 @@ load_dotenv('config/.env')
 app = Flask(__name__)
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class OptimizedDataCollector:
     def __init__(self, url: str):
         self.url = url
         self.last_content = ""
-        self.driver = None
         self.session = requests.Session()
         # Configure session headers to mimic a real browser
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:91.0) Gecko/20100101 Firefox/91.0'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
         })
     
-    def __del__(self):
-        """Ensure driver is properly closed"""
-        if self.driver:
-            try:
-                self.driver.quit()
-            except:
-                pass
+    def _try_direct_request(self) -> Optional[str]:
+        """Try to fetch content using requests first (lighter than Selenium)"""
+        try:
+            logger.info(f"Attempting direct HTTP request to: {self.url}")
+            response = self.session.get(self.url, timeout=15, allow_redirects=True)
+            logger.info(f"HTTP Status Code: {response.status_code}")
+            logger.info(f"Response length: {len(response.text)} characters")
+            
+            if response.status_code == 200:
+                # Check if the content contains our target elements
+                has_chekPosition = 'chekPosition' in response.text
+                has_check = 'check' in response.text
+                logger.info(f"Contains chekPosition: {has_chekPosition}, Contains check: {has_check}")
+                
+                if has_chekPosition or has_check:
+                    return response.text
+                else:
+                    # Log a sample of the response for debugging
+                    sample = response.text[:500] if len(response.text) > 500 else response.text
+                    logger.info(f"Response sample: {sample}")
+            else:
+                logger.warning(f"HTTP request failed with status: {response.status_code}")
+            return None
+        except Exception as e:
+            logger.warning(f"Direct request failed: {str(e)}")
+            return None
     
     @contextmanager
     def _get_driver(self):
@@ -65,19 +88,23 @@ class OptimizedDataCollector:
             firefox_options.set_preference("useAutomationExtension", False)
             firefox_options.set_preference("browser.cache.disk.enable", True)
             firefox_options.set_preference("browser.cache.memory.enable", True)
-            firefox_options.set_preference("browser.cache.offline.enable", True)
             firefox_options.set_preference("network.http.use-cache", True)
             
             # Reduce resource usage
-            firefox_options.set_preference("dom.max_script_run_time", 10)
-            firefox_options.set_preference("dom.max_chrome_script_run_time", 10)
+            firefox_options.set_preference("dom.max_script_run_time", 15)
+            firefox_options.set_preference("dom.max_chrome_script_run_time", 15)
             
-            # Use existing service or create new one
+            # Additional preferences for better compatibility
+            firefox_options.set_preference("javascript.enabled", True)
+            firefox_options.set_preference("permissions.default.image", 2)  # Don't load images
+            
+            logger.info("Initializing Firefox driver...")
             service = FirefoxService('/usr/local/bin/geckodriver')
             driver = webdriver.Firefox(service=service, options=firefox_options)
-            driver.set_page_load_timeout(30)  # 30 second timeout
-            driver.implicitly_wait(5)  # Reduced implicit wait
+            driver.set_page_load_timeout(45)  # Increased timeout
+            driver.implicitly_wait(10)
             
+            logger.info("Firefox driver initialized successfully")
             yield driver
         except Exception as e:
             logger.error(f"Driver setup error: {e}")
@@ -86,49 +113,108 @@ class OptimizedDataCollector:
             if driver:
                 try:
                     driver.quit()
+                    logger.info("Firefox driver closed")
                 except Exception as e:
                     logger.warning(f"Error quitting driver: {e}")
     
-    def _try_direct_request(self) -> Optional[str]:
-        """Try to fetch content using requests first (lighter than Selenium)"""
+    def _extract_content_selenium(self, driver) -> Optional[str]:
+        """Extract content using Selenium with better waiting strategies"""
         try:
-            response = self.session.get(self.url, timeout=10)
-            if response.status_code == 200:
-                # Check if the content contains our target elements
-                if 'chekPosition' in response.text:
-                    return response.text
-            return None
+            logger.info("Waiting for page to load...")
+            
+            # Wait for the body to be present first
+            WebDriverWait(driver, 30).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
+            
+            # Try multiple selectors for the content we need
+            selectors_to_try = [
+                "div.chekPosition",
+                "div.check",
+                "div.check div.chekPosition",
+                "[class*='chek']",
+                "[class*='check']"
+            ]
+            
+            content_element = None
+            for selector in selectors_to_try:
+                try:
+                    content_element = WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
+                    )
+                    logger.info(f"Found content using selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not content_element:
+                logger.warning("Could not find target elements, trying to extract from full page")
+                # Fallback: get the entire page content
+                html = driver.page_source
+                return self._extract_content_from_html(html)
+            
+            # Get the HTML of the specific element
+            html = content_element.get_attribute('outerHTML')
+            return self._extract_content_from_html(html)
+            
         except Exception as e:
-            logger.debug(f"Direct request failed: {e}")
-            return None
+            logger.error(f"Error extracting content with Selenium: {e}")
+            # Fallback to page source
+            try:
+                html = driver.page_source
+                return self._extract_content_from_html(html)
+            except Exception as fallback_error:
+                logger.error(f"Fallback extraction also failed: {fallback_error}")
+                return None
     
-    def _extract_content(self, html: str) -> Optional[str]:
+    def _extract_content_from_html(self, html: str) -> Optional[str]:
         """Extract content from HTML"""
         try:
             soup = BeautifulSoup(html, "html.parser")
             
-            # More efficient element finding
-            chek_div = (soup.find("div", class_="check") and 
-                       soup.find("div", class_="check").find("div", class_="chekPosition")) or \
-                      soup.find("div", class_="chekPosition")
+            # More flexible element finding
+            chek_div = None
+            possible_selectors = [
+                "div.check div.chekPosition",
+                "div.chekPosition", 
+                "div.check",
+                "div[class*='chek']",
+                "div[class*='check']"
+            ]
+            
+            for selector in possible_selectors:
+                chek_div = soup.select_one(selector)
+                if chek_div:
+                    logger.info(f"Found div using selector: {selector}")
+                    break
             
             if not chek_div:
-                logger.warning("No chekPosition div found")
+                logger.warning("No target div found in HTML")
+                # Try to find any meaningful content
+                all_text = soup.get_text(separator='\n', strip=True)
+                meaningful_lines = [line for line in all_text.split('\n') if len(line.strip()) > 10]
+                if meaningful_lines:
+                    return "\n".join(meaningful_lines[:10])  # Return first 10 meaningful lines
                 return None
             
             content_lines = []
             
-            # Use CSS selectors for better performance
-            main_paragraphs = chek_div.select('p:not(.bold)')
-            content_lines.extend(p.get_text(strip=True) for p in main_paragraphs if p.get_text(strip=True))
+            # Extract text from all paragraphs except those with class 'bold'
+            paragraphs = chek_div.find_all('p')
+            for p in paragraphs:
+                if 'bold' not in p.get('class', []):
+                    text = p.get_text(strip=True)
+                    if text:
+                        content_lines.append(text)
             
-            # Extract price information
-            nds_div = chek_div.find("div", class_="NDS")
-            if nds_div:
-                nds_paragraphs = nds_div.find_all("p")
-                content_lines.extend(p.get_text(strip=True) for p in nds_paragraphs if p.get_text(strip=True))
+            # If no paragraphs found, try to get all text
+            if not content_lines:
+                all_text = chek_div.get_text(separator='\n', strip=True)
+                content_lines = [line for line in all_text.split('\n') if line.strip()]
             
             content = "\n".join(content_lines)
+            logger.info(f"Extracted {len(content_lines)} lines of content")
+            
             return content if content else None
             
         except Exception as e:
@@ -140,41 +226,36 @@ class OptimizedDataCollector:
         try:
             logger.info(f"Fetching content from: {self.url}")
             
-            # Try direct HTTP request first (much lighter)
+            # Try direct HTTP request first
             html = self._try_direct_request()
             
-            # Fall back to Selenium if direct request fails or doesn't contain needed content
-            if not html or 'chekPosition' not in html:
-                logger.info("Falling back to Selenium")
+            # Fall back to Selenium if direct request fails
+            if not html:
+                logger.info("Direct request failed, using Selenium")
                 with self._get_driver() as driver:
+                    logger.info(f"Navigating to URL: {self.url}")
                     driver.get(self.url)
                     
-                    # Use explicit waits instead of sleep
-                    wait = WebDriverWait(driver, 10)
-                    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-                    
-                    # Wait specifically for our content if possible
-                    try:
-                        wait.until(EC.presence_of_element_located(
-                            (By.CSS_SELECTOR, "div.chekPosition, div.check")
-                        ))
-                    except:
-                        logger.warning("Target elements not found within timeout")
-                    
-                    html = driver.page_source
-            
-            content = self._extract_content(html)
-            
-            if content and content != self.last_content:
-                self.last_content = content
-                logger.info("New product info extracted")
-                return content
+                    # Extract content using Selenium
+                    content = self._extract_content_selenium(driver)
             else:
-                logger.info("No new content")
+                # Extract content from direct HTTP response
+                content = self._extract_content_from_html(html)
+            
+            if content:
+                logger.info(f"Content extracted successfully ({len(content)} characters)")
+                if content != self.last_content:
+                    self.last_content = content
+                    return content
+                else:
+                    logger.info("Content unchanged from previous fetch")
+                    return None
+            else:
+                logger.warning("No content could be extracted")
                 return None
 
         except Exception as e:
-            logger.error(f"Error fetching content: {e}")
+            logger.error(f"Error in fetch_content: {e}")
             return None
 
 class DataManager:
@@ -189,6 +270,7 @@ class DataManager:
         if not os.path.exists(self.data_file):
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump([], f, ensure_ascii=False, indent=2)
+            logger.info(f"Created new data file: {self.data_file}")
     
     def get_last_content(self) -> Optional[str]:
         """Get last content efficiently using JSON"""
@@ -197,7 +279,10 @@ class DataManager:
                 data = json.load(f)
             
             if data:
-                return data[-1].get('raw_content', '')
+                last_entry = data[-1]
+                logger.info(f"Last content timestamp: {last_entry.get('timestamp')}")
+                return last_entry.get('raw_content', '')
+            logger.info("No previous data found")
             return None
         except Exception as e:
             logger.error(f"Error reading last content: {e}")
@@ -221,10 +306,12 @@ class DataManager:
             # Keep only last 1000 entries to prevent file bloat
             if len(data) > 1000:
                 data = data[-1000:]
+                logger.info("Trimmed data to 1000 most recent entries")
             
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             
+            logger.info(f"Successfully saved data entry (total entries: {len(data)})")
             return True
         except Exception as e:
             logger.error(f"Error saving data: {e}")
@@ -234,7 +321,9 @@ class DataManager:
         """Load all data efficiently"""
         try:
             with open(self.data_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+            logger.info(f"Loaded {len(data)} entries from data file")
+            return data
         except Exception as e:
             logger.error(f"Error loading data: {e}")
             return []
@@ -251,6 +340,8 @@ def extract_sales_data(content: str) -> Dict[str, str]:
     }
     
     lines = [line.strip() for line in content.split('\n') if line.strip()]
+    logger.info(f"Processing {len(lines)} lines for sales data")
+    
     identified_patterns = set()
     
     # Single pass pattern matching
@@ -258,12 +349,15 @@ def extract_sales_data(content: str) -> Dict[str, str]:
         if 'УКТЗЕД' in line:
             sales_data['uktzed'] = line.replace('УКТЗЕД', '').strip()
             identified_patterns.add(line)
+            logger.info(f"Found UKTZED: {sales_data['uktzed']}")
         elif 'Штрих-код' in line:
             sales_data['barcode'] = line.replace('Штрих-код', '').strip()
             identified_patterns.add(line)
+            logger.info(f"Found barcode: {sales_data['barcode']}")
         elif '*' in line and any(char.isdigit() for char in line) and 'шт' in line:
             sales_data['price_details'] = line
             identified_patterns.add(line)
+            logger.info(f"Found price details: {line}")
             # Parse unit price and quantity
             parts = line.split('*')
             if len(parts) >= 2:
@@ -274,6 +368,7 @@ def extract_sales_data(content: str) -> Dict[str, str]:
         elif '(Б)' in line and any(char.isdigit() for char in line):
             sales_data['price_breakdown'] = line
             identified_patterns.add(line)
+            logger.info(f"Found price breakdown: {line}")
             price_match = re.search(r'^([\d\.,]+)', line)
             if price_match:
                 sales_data['total_price'] = price_match.group(1)
@@ -289,11 +384,13 @@ def extract_sales_data(content: str) -> Dict[str, str]:
     
     if candidate_lines:
         sales_data['product_name'] = max(candidate_lines, key=len)
+        logger.info(f"Found product name: {sales_data['product_name']}")
     elif lines:
         # Fallback: first non-pattern line
         for line in lines:
             if line not in identified_patterns:
                 sales_data['product_name'] = line
+                logger.info(f"Using fallback product name: {sales_data['product_name']}")
                 break
     
     # Calculate prices if missing
@@ -310,6 +407,7 @@ def _calculate_missing_prices(sales_data: Dict):
             total = float(sales_data['total_price'].replace(',', '.'))
             quantity = float(sales_data['quantity'])
             sales_data['unit_price'] = f"{total / quantity:.2f}"
+            logger.info(f"Calculated unit price: {sales_data['unit_price']}")
         
         # Total price from unit price and quantity
         elif (sales_data['unit_price'] and not sales_data['total_price'] 
@@ -317,24 +415,31 @@ def _calculate_missing_prices(sales_data: Dict):
             unit = float(sales_data['unit_price'].replace(',', '.'))
             quantity = float(sales_data['quantity'])
             sales_data['total_price'] = f"{unit * quantity:.2f}"
-    except (ValueError, ZeroDivisionError):
-        pass
+            logger.info(f"Calculated total price: {sales_data['total_price']}")
+    except (ValueError, ZeroDivisionError) as e:
+        logger.warning(f"Price calculation error: {e}")
 
 def collect_and_save_data():
     """Optimized data collection with configurable intervals"""
-    url = os.getenv('TARGET_URL', 'https://example.com')
+    url = os.getenv('TARGET_URL', 'https://help.apteka911.com.ua/receipt/?id=44882428-7730-4B5E-926B-21F2C92FE0CC')
+    if not url:
+        logger.error("TARGET_URL environment variable not set!")
+        return
+    
+    logger.info(f"Starting data collection for URL: {url}")
     collector = OptimizedDataCollector(url)
     data_manager = DataManager()
     
     # Configurable intervals
-    normal_interval = int(os.getenv('CHECK_INTERVAL', '10'))  # seconds
+    normal_interval = int(os.getenv('CHECK_INTERVAL', '30'))  # seconds
     error_interval = int(os.getenv('ERROR_INTERVAL', '60'))   # seconds
     
     consecutive_errors = 0
-    max_consecutive_errors = 5
+    max_consecutive_errors = 3
     
     while True:
         try:
+            logger.info(f"=== Collection cycle started ===")
             content = collector.fetch_content()
             
             if content and content != "No product information available":
@@ -342,28 +447,37 @@ def collect_and_save_data():
                 
                 if content != last_content:
                     if data_manager.save_data(url, content):
-                        logger.info("New data saved successfully")
+                        logger.info("✅ New data saved successfully")
                     else:
-                        logger.error("Failed to save data")
+                        logger.error("❌ Failed to save data")
+                        consecutive_errors += 1
                 else:
-                    logger.info("Content unchanged, skipping save")
+                    logger.info("ℹ️  Content unchanged, skipping save")
             else:
-                logger.info("No valid content to save")
+                logger.warning("⚠️  No valid content to save")
+                consecutive_errors += 1
             
-            consecutive_errors = 0
-            time.sleep(normal_interval)
+            # Reset error counter on success
+            if content:
+                consecutive_errors = 0
+            
+            sleep_time = normal_interval
+            if consecutive_errors >= max_consecutive_errors:
+                sleep_time = error_interval * 2
+                logger.error(f"🔴 Too many errors, increasing interval to {sleep_time}s")
+            elif consecutive_errors > 0:
+                sleep_time = error_interval
+            
+            logger.info(f"💤 Sleeping for {sleep_time} seconds...")
+            time.sleep(sleep_time)
             
         except Exception as e:
             consecutive_errors += 1
-            logger.error(f"Error in data collection loop: {e}")
-            
-            if consecutive_errors >= max_consecutive_errors:
-                logger.error("Too many consecutive errors, increasing interval")
-                time.sleep(error_interval * 2)  # Double the error interval
-            else:
-                time.sleep(error_interval)
+            logger.error(f"🔴 Error in data collection loop: {e}")
+            logger.info(f"💤 Sleeping for {error_interval} seconds after error...")
+            time.sleep(error_interval)
 
-# Flask routes remain largely the same but use DataManager
+# Initialize data manager instance
 data_manager = DataManager()
 
 @app.route('/')
@@ -417,8 +531,33 @@ def export_csv():
     
     return response
 
-# Other routes (export/excel, api/data, api/totals) remain similar
-# but should use data_manager.load_data() instead of parse_data_file()
+@app.route('/api/data')
+def api_data():
+    """API endpoint for JSON data"""
+    entries = data_manager.load_data()
+    return jsonify(entries)
+
+@app.route('/api/totals')
+def api_totals():
+    """API endpoint for totals"""
+    entries = data_manager.load_data()
+    totals = calculate_totals(entries)
+    return jsonify(totals)
+
+@app.route('/status')
+def status():
+    """Status endpoint to check if collection is working"""
+    entries = data_manager.load_data()
+    last_entry = entries[-1] if entries else None
+    
+    status_info = {
+        'status': 'running',
+        'total_entries': len(entries),
+        'last_collection': last_entry.get('timestamp') if last_entry else 'Never',
+        'last_product': last_entry.get('sales_data', {}).get('product_name') if last_entry else 'None'
+    }
+    
+    return jsonify(status_info)
 
 def calculate_totals(entries):
     """Calculate total sales statistics"""
@@ -463,10 +602,19 @@ def calculate_totals(entries):
     return totals
 
 if __name__ == '__main__':
-    # Start data collection in background thread
-    data_collector_thread = threading.Thread(target=collect_and_save_data, daemon=True)
-    data_collector_thread.start()
+    logger.info("Starting Pharmacy Data Collection System")
     
-    # Start Flask app
-    app.run(debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true', 
-            host='0.0.0.0', port=5000)
+    # Check if required components are available
+    try:
+        # Start data collection in background thread
+        data_collector_thread = threading.Thread(target=collect_and_save_data, daemon=True)
+        data_collector_thread.start()
+        logger.info("Data collection thread started")
+        
+        # Start Flask app
+        logger.info("Starting Flask application...")
+        app.run(debug=os.getenv('FLASK_DEBUG', 'False').lower() == 'true', 
+                host='0.0.0.0', port=5000, use_reloader=False)
+        
+    except Exception as e:
+        logger.error(f"Failed to start application: {e}")
