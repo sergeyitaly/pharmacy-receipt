@@ -69,125 +69,41 @@
                 </tr>
             </thead>
                 <tbody>
-                    {% for entry in entries %}
-                    <tr>
-                        <td data-sort="{{ entry.timestamp }}">{{ entry.timestamp[:19] }}</td>
-                        <td>
-                            {% if entry.sales_data %}
-                                {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                                    {{ entry.sales_data[0].product_name if entry.sales_data and entry.sales_data[0] else 'N/A' }}
-                                {% else %}
-                                    {{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}
-                                {% endif %}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if entry.sales_data %}
-                                {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                                    {{ entry.sales_data[0].uktzed if entry.sales_data and entry.sales_data[0] else 'N/A' }}
-                                {% else %}
-                                    {{ entry.sales_data.uktzed if entry.sales_data else 'N/A' }}
-                                {% endif %}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if entry.sales_data %}
-                                {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                                    {{ entry.sales_data[0].barcode if entry.sales_data and entry.sales_data[0] else 'N/A' }}
-                                {% else %}
-                                    {{ entry.sales_data.barcode if entry.sales_data else 'N/A' }}
-                                {% endif %}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if entry.sales_data %}
-                                {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                                    {{ entry.sales_data[0].quantity if entry.sales_data and entry.sales_data[0] else 'N/A' }}
-                                {% else %}
-                                    {{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}
-                                {% endif %}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td data-sort="
-                            {% if entry.sales_data %}
-                                {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                                    {{ entry.sales_data[0].unit_price | float if entry.sales_data and entry.sales_data[0] and entry.sales_data[0].unit_price else 0 }}
-                                {% else %}
-                                    {{ entry.sales_data.unit_price | float if entry.sales_data and entry.sales_data.unit_price else 0 }}
-                                {% endif %}
-                            {% else %}
-                                0
-                            {% endif %}
-                        ">
-                            {% if entry.sales_data %}
-                                {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                                    {% if entry.sales_data and entry.sales_data[0] and entry.sales_data[0].unit_price %}
-                                        {{ "%.2f"|format(entry.sales_data[0].unit_price | float) }} ₴
-                                    {% else %}
-                                        N/A
-                                    {% endif %}
-                                {% else %}
-                                    {% if entry.sales_data and entry.sales_data.unit_price %}
-                                        {{ "%.2f"|format(entry.sales_data.unit_price | float) }} ₴
-                                    {% else %}
-                                        N/A
-                                    {% endif %}
-                                {% endif %}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td data-sort="
-                            {% if entry.sales_data %}
-                                {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                                    {{ entry.sales_data[0].total_price | float if entry.sales_data and entry.sales_data[0] and entry.sales_data[0].total_price else 0 }}
-                                {% else %}
-                                    {{ entry.sales_data.total_price | float if entry.sales_data and entry.sales_data.total_price else 0 }}
-                                {% endif %}
-                            {% else %}
-                                0
-                            {% endif %}
-                        ">
-                            {% if entry.sales_data %}
-                                {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                                    {% if entry.sales_data and entry.sales_data[0] and entry.sales_data[0].total_price %}
-                                        {{ "%.2f"|format(entry.sales_data[0].total_price | float) }} ₴
-                                    {% else %}
-                                        N/A
-                                    {% endif %}
-                                {% else %}
-                                    {% if entry.sales_data and entry.sales_data.total_price %}
-                                        {{ "%.2f"|format(entry.sales_data.total_price | float) }} ₴
-                                    {% else %}
-                                        N/A
-                                    {% endif %}
-                                {% endif %}
-                            {% else %}
-                                N/A
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{{ entry.url }}" target="_blank" style="margin-right: 0.5rem;">
-                                <i class="fas fa-external-link-alt"></i>
-                            </a>
-                            <button class="btn-copy" onclick="copySaleData({{ loop.index0 }})">
-                                <i class="fas fa-copy"></i>
-                            </button>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="8" style="text-align: center;">No sales data available</td>
-                    </tr>
-                    {% endfor %}
+
+{% for entry in entries %}
+    {% if entry.sales_data is iterable and entry.sales_data is not string %}
+        {% for sale in entry.sales_data %}
+        <div class="mobile-card">
+            <div class="card-row"><span class="card-label">Time:</span><span>{{ entry.timestamp[:19] }}</span></div>
+            <div class="card-row"><span class="card-label">Product:</span><span>{{ sale.product_name or 'N/A' }}</span></div>
+            <div class="card-row"><span class="card-label">Price:</span>
+                {% if sale.total_price %}{{ "%.2f"|format(sale.total_price|float) }} ₴{% else %}N/A{% endif %}
+            </div>
+            <div class="card-row"><span class="card-label">Qty:</span><span>{{ sale.quantity or 'N/A' }}</span></div>
+            <div style="display:flex;gap:1rem;margin-top:1rem;">
+                <button class="btn btn-copy" onclick="copySaleData({{ loop.index0 }})" style="flex:1;">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="mobile-card">
+            <div class="card-row"><span class="card-label">Time:</span><span>{{ entry.timestamp[:19] }}</span></div>
+            <div class="card-row"><span class="card-label">Product:</span><span>{{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}</span></div>
+            <div class="card-row"><span class="card-label">Price:</span>
+                {% if entry.sales_data and entry.sales_data.total_price %}
+                    {{ "%.2f"|format(entry.sales_data.total_price|float) }} ₴
+                {% else %}N/A{% endif %}
+            </div>
+            <div class="card-row"><span class="card-label">Qty:</span><span>{{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}</span></div>
+        </div>
+    {% endif %}
+{% else %}
+    <div class="mobile-card"><div style="text-align:center;">No sales data available</div></div>
+{% endfor %}
+
+
                 </tbody>
 
         </table>
