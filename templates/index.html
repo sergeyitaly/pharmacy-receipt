@@ -68,64 +68,40 @@
                     <th>Actions</th>
                 </tr>
             </thead>
-                <tbody>
-                    {% for entry in entries %}
-                        {% if entry.sales_data is iterable and entry.sales_data is not string %}
-                            {% for sale in entry.sales_data %}
-                            <tr>
-                                <td data-sort="{{ entry.timestamp }}">{{ entry.timestamp[:19] }}</td>
-                                <td>{{ sale.product_name or 'N/A' }}</td>
-                                <td>{{ sale.uktzed or 'N/A' }}</td>
-                                <td>{{ sale.barcode or 'N/A' }}</td>
-                                <td>{{ sale.quantity or 'N/A' }}</td>
-                                <td data-sort="{{ sale.unit_price|default(0)|float }}">
-                                    {% if sale.unit_price %}{{ "%.2f"|format(sale.unit_price|float) }} ₴{% else %}N/A{% endif %}
-                                </td>
-                                <td data-sort="{{ sale.total_price|default(0)|float }}">
-                                    {% if sale.total_price %}{{ "%.2f"|format(sale.total_price|float) }} ₴{% else %}N/A{% endif %}
-                                </td>
-                                <td>
-                                    <a href="{{ entry.url }}" target="_blank" style="margin-right: 0.5rem;">
-                                        <i class="fas fa-external-link-alt"></i>
-                                    </a>
-                                    <button class="btn-copy" onclick="copySaleData({{ loop.index0 }})">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            {% endfor %}
+            <tbody>
+                {% for entry in entries %}
+                <tr>
+                    <td data-sort="{{ entry.timestamp }}">{{ entry.timestamp[:19] if entry.timestamp else 'N/A' }}</td>
+                    <td>{{ entry.sales_data.product_name if entry.sales_data and entry.sales_data.product_name else 'N/A' }}</td>
+                    <td>{{ entry.sales_data.uktzed if entry.sales_data and entry.sales_data.uktzed else 'N/A' }}</td>
+                    <td>{{ entry.sales_data.barcode if entry.sales_data and entry.sales_data.barcode else 'N/A' }}</td>
+                    <td>{{ entry.sales_data.quantity if entry.sales_data and entry.sales_data.quantity else 'N/A' }}</td>
+                    <td data-sort="{{ entry.sales_data.unit_price|default(0)|float }}">
+                        {% if entry.sales_data and entry.sales_data.unit_price %}
+                            {{ "%.2f"|format(entry.sales_data.unit_price|float) }} ₴
                         {% else %}
-                            <tr>
-                                <td data-sort="{{ entry.timestamp }}">{{ entry.timestamp[:19] }}</td>
-                                <td>{{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}</td>
-                                <td>{{ entry.sales_data.uktzed if entry.sales_data else 'N/A' }}</td>
-                                <td>{{ entry.sales_data.barcode if entry.sales_data else 'N/A' }}</td>
-                                <td>{{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}</td>
-                                <td data-sort="{{ entry.sales_data.unit_price|default(0)|float }}">
-                                    {% if entry.sales_data and entry.sales_data.unit_price %}
-                                        {{ "%.2f"|format(entry.sales_data.unit_price|float) }} ₴
-                                    {% else %}N/A{% endif %}
-                                </td>
-                                <td data-sort="{{ entry.sales_data.total_price|default(0)|float }}">
-                                    {% if entry.sales_data and entry.sales_data.total_price %}
-                                        {{ "%.2f"|format(entry.sales_data.total_price|float) }} ₴
-                                    {% else %}N/A{% endif %}
-                                </td>
-                                <td>
-                                    <button class="btn-copy" onclick="copySaleData({{ loop.index0 }})">
-                                        <i class="fas fa-copy"></i>
-                                    </button>
-                                </td>
-                            </tr>
+                            N/A
                         {% endif %}
-                    {% else %}
-                        <tr>
-                            <td colspan="8" style="text-align: center;">No sales data available</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-
-
+                    </td>
+                    <td data-sort="{{ entry.sales_data.total_price|default(0)|float }}">
+                        {% if entry.sales_data and entry.sales_data.total_price %}
+                            {{ "%.2f"|format(entry.sales_data.total_price|float) }} ₴
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                    <td>
+                        <button class="btn-copy" onclick="copySaleData({{ loop.index0 }})">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center;">No sales data available</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
 
         <!-- Mobile Cards -->
@@ -133,30 +109,35 @@
         <div class="mobile-card">
             <div class="card-row">
                 <span class="card-label">Time:</span>
-                <span>{{ entry.timestamp[:19] }}</span>
+                <span>{{ entry.timestamp[:19] if entry.timestamp else 'N/A' }}</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Product:</span>
-                <span>{{ entry.sales_data.product_name if entry.sales_data else 'N/A' }}</span>
+                <span>{{ entry.sales_data.product_name if entry.sales_data and entry.sales_data.product_name else 'N/A' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">UKTZED:</span>
+                <span>{{ entry.sales_data.uktzed if entry.sales_data and entry.sales_data.uktzed else 'N/A' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Barcode:</span>
+                <span>{{ entry.sales_data.barcode if entry.sales_data and entry.sales_data.barcode else 'N/A' }}</span>
+            </div>
+            <div class="card-row">
+                <span class="card-label">Qty:</span>
+                <span>{{ entry.sales_data.quantity if entry.sales_data and entry.sales_data.quantity else 'N/A' }}</span>
             </div>
             <div class="card-row">
                 <span class="card-label">Price:</span>
                 <span>
                     {% if entry.sales_data and entry.sales_data.total_price %}
-                        {{ "%.2f"|format(entry.sales_data.total_price | float) }} ₴
+                        {{ "%.2f"|format(entry.sales_data.total_price|float) }} ₴
                     {% else %}
                         N/A
                     {% endif %}
                 </span>
             </div>
-            <div class="card-row">
-                <span class="card-label">Qty:</span>
-                <span>{{ entry.sales_data.quantity if entry.sales_data else 'N/A' }}</span>
-            </div>
             <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                <a href="{{ entry.url }}" target="_blank" class="btn btn-primary" style="flex: 1;">
-                    <i class="fas fa-external-link-alt"></i> View
-                </a>
                 <button class="btn btn-copy" onclick="copySaleData({{ loop.index0 }})" style="flex: 1;">
                     <i class="fas fa-copy"></i> Copy
                 </button>
@@ -277,14 +258,13 @@
         function copySaleData(index) {
             const sale = salesData[index];
             const text = `Pharmacy Sale Record:
-Timestamp: ${sale.timestamp}
+Timestamp: ${sale.timestamp || 'N/A'}
 Product: ${sale.sales_data?.product_name || 'N/A'}
 UKTZED: ${sale.sales_data?.uktzed || 'N/A'}
 Barcode: ${sale.sales_data?.barcode || 'N/A'}
 Quantity: ${sale.sales_data?.quantity || 'N/A'}
 Unit Price: ${sale.sales_data?.unit_price || 'N/A'} ₴
-Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴
-URL: ${sale.url}`;
+Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴;
 
             copyToClipboard(text);
         }
