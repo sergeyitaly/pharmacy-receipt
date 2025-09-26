@@ -396,3 +396,49 @@
         .sales-table tr:hover {
             background-color: #f5f5f5;
         }
+        .sort-btn {
+            margin: 0 5px;
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 2px solid #007bff;
+            background: white;
+            color: #007bff;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .sort-btn.active {
+            background: #007bff;
+            color: white;
+        }
+        
+        .sort-btn:hover {
+            background: #0056b3;
+            color: white;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .notification.success {
+            background: #28a745;
+        }
+        
+        .notification.error {
+            background: #dc3545;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }

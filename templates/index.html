@@ -51,6 +51,19 @@
         <div class="chart-section">
             <h2>Top 10 Selling Products (Last 7 Days)</h2>
             
+            <!-- Add sorting controls here -->
+            <div id="chartSortingControls" style="margin: 10px 0; text-align: center;">
+                <label style="font-weight: bold; margin-right: 10px;">Sort by:</label>
+                <button onclick="renderTopProductsChart('revenue')" 
+                        class="sort-btn active" id="sortRevenue">
+                    Revenue
+                </button>
+                <button onclick="renderTopProductsChart('quantity')" 
+                        class="sort-btn" id="sortQuantity">
+                    Quantity
+                </button>
+            </div>
+            
             {% if top_products and top_products|length > 0 %}
             <div class="chart-container">
                 <canvas id="topProductsChart" width="1400" height="700" style="width:100%; height:500px;"></canvas>
@@ -237,6 +250,11 @@
             
             const icon = document.querySelector('.theme-toggle i');
             icon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            
+            // Update chart colors when theme changes
+            if (window.currentSortBy) {
+                renderTopProductsChart(window.currentSortBy);
+            }
         }
 
         // Compact view
@@ -347,8 +365,8 @@
                 document.body.classList.add('compact');
             }
 
-            // Render the chart
-            renderTopProductsChart();
+            // Initialize chart
+            initializeChart();
 
             // Auto-refresh every 60 seconds
             setTimeout(() => {
@@ -356,100 +374,193 @@
             }, 60000);
         });
 
-        // Top Products Chart
-            function renderTopProductsChart() {
-                const topProducts = {{ top_products | tojson | safe }};
+        function renderTopProductsChart(sortBy = 'revenue') {
+            const topProducts = {{ top_products | tojson | safe }};
 
-                if (!topProducts || topProducts.length === 0) {
-                    console.log('No chart data available');
-                    return;
+            if (!topProducts || topProducts.length === 0) {
+                console.log('No chart data available');
+                return;
+            }
+
+            // Store current sort preference
+            window.currentSortBy = sortBy;
+
+            // Sort the data based on the selected criteria
+            const sortedProducts = [...topProducts].sort((a, b) => {
+                if (sortBy === 'quantity') {
+                    return (b.total_quantity || 0) - (a.total_quantity || 0);
+                } else { // default to revenue
+                    return (b.total_revenue || 0) - (a.total_revenue || 0);
                 }
+            });
 
-                const ctx = document.getElementById('topProductsChart');
+            const ctx = document.getElementById('topProductsChart');
 
-                // Destroy existing chart if exists
-                if (window.topProductsChartInstance) {
-                    window.topProductsChartInstance.destroy();
-                }
+            // Destroy existing chart if exists
+            if (window.topProductsChartInstance) {
+                window.topProductsChartInstance.destroy();
+            }
 
-                // Product names, revenues, and quantities
-                const productNames = topProducts.map(p =>
-                    p.product_name.length > 30 ? p.product_name.substring(0, 30) + '...' : p.product_name
-                );
-                const revenues = topProducts.map(p => p.total_revenue || 0);
-                const quantities = topProducts.map(p => p.total_quantity || 0);
+            // Product names, revenues, and quantities
+            const productNames = sortedProducts.map(p =>
+                p.product_name.length > 20 ? p.product_name.substring(0, 20) + '...' : p.product_name
+            );
+            const revenues = sortedProducts.map(p => p.total_revenue || 0);
+            const quantities = sortedProducts.map(p => p.total_quantity || 0);
 
-                // Generate rainbow colors
-                const colors = [];
-                for (let i = 0; i < topProducts.length; i++) {
-                    const hue = Math.floor((i / topProducts.length) * 360);
-                    colors.push(`hsl(${hue}, 70%, 60%)`);
-                }
+            // Generate rainbow colors
+            const colors = [];
+            for (let i = 0; i < sortedProducts.length; i++) {
+                const hue = Math.floor((i / sortedProducts.length) * 360);
+                colors.push(`hsl(${hue}, 70%, 60%)`);
+            }
 
-                window.topProductsChartInstance = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: productNames,
-                        datasets: [{
-                            label: 'Revenue (₴)',
-                            data: revenues,
-                            backgroundColor: colors,
-                            borderColor: colors.map(c => c.replace('60%', '40%')),
-                            borderWidth: 1
-                        }]
-                    },
-                    options: {
-                        devicePixelRatio: window.devicePixelRatio || 1,
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'top' },
-                            title: {
-                                display: true,
-                                text: 'Top 10 Selling Products (Last 7 Days)',
-                                font: { size: 20 }
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        return `Revenue: ₴${context.parsed.y.toFixed(2)} | Qty: ${quantities[context.dataIndex]}`;
-                                    }
-                                }
-                            },
-                            datalabels: {
-                                anchor: 'end',
-                                align: 'end',
-                                color: '#000',
-                                font: { weight: 'bold', size: 14 },
-                                formatter: (value, ctx) => quantities[ctx.dataIndex]
+            // Determine the current metric for display
+            const currentMetric = sortBy === 'quantity' ? 'Quantity' : 'Revenue (₴)';
+            const currentData = sortBy === 'quantity' ? quantities : revenues;
+            const yAxisTitle = sortBy === 'quantity' ? 'Quantity' : 'Revenue (₴)';
+
+            // Get current theme for text colors
+            const currentTheme = document.body.getAttribute('data-theme') || 'light';
+            const textColor = currentTheme === 'dark' ? '#ffffff' : '#333333';
+            const gridColor = currentTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
+            window.topProductsChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: productNames,
+                    datasets: [{
+                        label: currentMetric,
+                        data: currentData,
+                        backgroundColor: colors,
+                        borderColor: colors.map(c => c.replace('60%', '40%')),
+                        borderWidth: 1,
+                        barPercentage: 0.7,
+                        categoryPercentage: 0.8
+                    }]
+                },
+                options: {
+                    devicePixelRatio: window.devicePixelRatio || 1,
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14,
+                                    family: "'Arial', 'Helvetica', sans-serif",
+                                    weight: 'bold'
+                                },
+                                color: textColor,
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                padding: 15,
+                                boxWidth: 12
                             }
                         },
-                        scales: {
-                            x: {
-                                ticks: {
-                                    maxRotation: 60,
-                                    minRotation: 30,
-                                    font: { size: 14 },
-                                }
+                        title: {
+                            display: true,
+                            text: `Top 10 Selling Products (Last 7 Days) - Sorted by ${sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}`,
+                            font: { 
+                                size: 16,
+                                weight: 'bold'
                             },
-                            y: {
-                                beginAtZero: true,
-                                title: { display: true, text: 'Revenue (₴)', font: { size: 16 } }
+                            color: textColor,
+                            padding: 20
+                        },
+                        tooltip: {
+                            backgroundColor: currentTheme === 'dark' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.9)',
+                            titleColor: textColor,
+                            bodyColor: textColor,
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    return [
+                                        `Revenue: ₴${revenues[index].toFixed(2)}`,
+                                        `Quantity: ${quantities[index]}`
+                                    ];
+                                }
+                            }
+                        },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'end',
+                            color: textColor,
+                            font: { 
+                                weight: 'bold', 
+                                size: 11
+                            },
+                            formatter: (value, ctx) => {
+                                return sortBy === 'quantity' ? quantities[ctx.dataIndex] : `₴${revenues[ctx.dataIndex].toFixed(0)}`;
                             }
                         }
                     },
-                    plugins: [ChartDataLabels] // Show quantity on top
-                });
-            }
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxRotation: 45,
+                                minRotation: 30,
+                                font: { 
+                                    size: 11,
+                                    family: "'Arial', 'Helvetica', sans-serif"
+                                },
+                                color: textColor
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: { 
+                                display: true, 
+                                text: yAxisTitle, 
+                                font: { 
+                                    size: 14,
+                                    family: "'Arial', 'Helvetica', sans-serif",
+                                    weight: 'bold'
+                                },
+                                color: textColor
+                            },
+                            ticks: {
+                                font: {
+                                    family: "'Arial', 'Helvetica', sans-serif"
+                                },
+                                color: textColor
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
 
-            // 🌈 Gradient helper function
-            function getGradient(ctx, chartArea, colorStart, colorEnd) {
-                const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-                gradient.addColorStop(0, colorStart);
-                gradient.addColorStop(1, colorEnd);
-                return gradient;
-            }
+            // Update active button states
+            updateSortButtons(sortBy);
+        }
 
+        function updateSortButtons(activeSort) {
+            const revenueBtn = document.getElementById('sortRevenue');
+            const quantityBtn = document.getElementById('sortQuantity');
+            
+            revenueBtn.classList.toggle('active', activeSort === 'revenue');
+            quantityBtn.classList.toggle('active', activeSort === 'quantity');
+        }
+
+        function initializeChart() {
+            renderTopProductsChart('revenue');
+        }
+
+        // 🌈 Gradient helper function
+        function getGradient(ctx, chartArea, colorStart, colorEnd) {
+            const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+            gradient.addColorStop(0, colorStart);
+            gradient.addColorStop(1, colorEnd);
+            return gradient;
+        }
 
         // Store entries data for JavaScript access
         const salesData = {{ entries | tojson | safe }};
@@ -470,8 +581,8 @@
                     Unit Price: ${sale.sales_data?.unit_price || 'N/A'} ₴
                     Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴`;
                             
-                                copyToClipboard(text);
-                            }
+            copyToClipboard(text);
+        }
 
         function copyToClipboard(text) {
             if (!navigator.clipboard) {
@@ -519,5 +630,6 @@
             }, 3000);
         }
     </script>
+
 </body>
 </html>
