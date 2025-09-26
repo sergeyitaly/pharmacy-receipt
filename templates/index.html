@@ -348,7 +348,7 @@
             }
 
             // Render the chart
-           // renderTopProductsChart();
+            renderTopProductsChart();
 
             // Auto-refresh every 60 seconds
             setTimeout(() => {
@@ -356,189 +356,99 @@
             }, 60000);
         });
 
-function renderTopProductsChart(sortBy = 'revenue') {
-    const topProducts = {{ top_products | tojson | safe }};
+        // Top Products Chart
+            function renderTopProductsChart() {
+                const topProducts = {{ top_products | tojson | safe }};
 
-    if (!topProducts || topProducts.length === 0) {
-        console.log('No chart data available');
-        return;
-    }
-
-    // Sort the data based on the selected criteria
-    const sortedProducts = [...topProducts].sort((a, b) => {
-        if (sortBy === 'quantity') {
-            return (b.total_quantity || 0) - (a.total_quantity || 0);
-        } else { // default to revenue
-            return (b.total_revenue || 0) - (a.total_revenue || 0);
-        }
-    });
-
-    const ctx = document.getElementById('topProductsChart');
-
-    // Destroy existing chart if exists
-    if (window.topProductsChartInstance) {
-        window.topProductsChartInstance.destroy();
-    }
-
-    // Product names, revenues, and quantities
-    const productNames = sortedProducts.map(p =>
-        p.product_name.length > 30 ? p.product_name.substring(0, 30) + '...' : p.product_name
-    );
-    const revenues = sortedProducts.map(p => p.total_revenue || 0);
-    const quantities = sortedProducts.map(p => p.total_quantity || 0);
-
-    // Generate rainbow colors
-    const colors = [];
-    for (let i = 0; i < sortedProducts.length; i++) {
-        const hue = Math.floor((i / sortedProducts.length) * 360);
-        colors.push(`hsl(${hue}, 70%, 60%)`);
-    }
-
-    // Determine the current metric for display
-    const currentMetric = sortBy === 'quantity' ? 'Quantity' : 'Revenue (₴)';
-    const currentData = sortBy === 'quantity' ? quantities : revenues;
-    const yAxisTitle = sortBy === 'quantity' ? 'Quantity' : 'Revenue (₴)';
-
-    window.topProductsChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: productNames,
-            datasets: [{
-                label: currentMetric,
-                data: currentData,
-                backgroundColor: colors,
-                borderColor: colors.map(c => c.replace('60%', '40%')),
-                borderWidth: 1
-            }]
-        },
-        options: {
-            devicePixelRatio: window.devicePixelRatio || 1,
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { 
-                    position: 'top',
-                    labels: {
-                        font: {
-                            size: 14,
-                            family: "'Arial', 'Helvetica', sans-serif"
-                        },
-                        color: '#333',
-                        usePointStyle: true,
-                        pointStyle: 'rect',
-                        padding: 20
-                    }
-                },
-                title: {
-                    display: true,
-                    text: `Top 10 Selling Products (Last 7 Days) - Sorted by ${sortBy}`,
-                    font: { size: 20 }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const index = context.dataIndex;
-                            return [
-                                `Revenue: ₴${revenues[index].toFixed(2)}`,
-                                `Quantity: ${quantities[index]}`
-                            ];
-                        }
-                    }
-                },
-                datalabels: {
-                    anchor: 'end',
-                    align: 'end',
-                    color: '#000',
-                    font: { 
-                        weight: 'bold', 
-                        size: 12 // Reduced size for better fit
-                    },
-                    formatter: (value, ctx) => {
-                        return sortBy === 'quantity' ? quantities[ctx.dataIndex] : `₴${revenues[ctx.dataIndex].toFixed(0)}`;
-                    }
+                if (!topProducts || topProducts.length === 0) {
+                    console.log('No chart data available');
+                    return;
                 }
-            },
-            scales: {
-                x: {
-                    ticks: {
-                        maxRotation: 60,
-                        minRotation: 30,
-                        font: { 
-                            size: 12, // Reduced size for better fit
-                            family: "'Arial', 'Helvetica', sans-serif"
-                        },
-                        color: '#333'
-                    }
-                },
-                y: {
-                    beginAtZero: true,
-                    title: { 
-                        display: true, 
-                        text: yAxisTitle, 
-                        font: { 
-                            size: 16,
-                            family: "'Arial', 'Helvetica', sans-serif"
-                        } 
-                    },
-                    ticks: {
-                        font: {
-                            family: "'Arial', 'Helvetica', sans-serif"
-                        }
-                    }
+
+                const ctx = document.getElementById('topProductsChart');
+
+                // Destroy existing chart if exists
+                if (window.topProductsChartInstance) {
+                    window.topProductsChartInstance.destroy();
                 }
+
+                // Product names, revenues, and quantities
+                const productNames = topProducts.map(p =>
+                    p.product_name.length > 30 ? p.product_name.substring(0, 30) + '...' : p.product_name
+                );
+                const revenues = topProducts.map(p => p.total_revenue || 0);
+                const quantities = topProducts.map(p => p.total_quantity || 0);
+
+                // Generate rainbow colors
+                const colors = [];
+                for (let i = 0; i < topProducts.length; i++) {
+                    const hue = Math.floor((i / topProducts.length) * 360);
+                    colors.push(`hsl(${hue}, 70%, 60%)`);
+                }
+
+                window.topProductsChartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: productNames,
+                        datasets: [{
+                            label: 'Revenue (₴)',
+                            data: revenues,
+                            backgroundColor: colors,
+                            borderColor: colors.map(c => c.replace('60%', '40%')),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        devicePixelRatio: window.devicePixelRatio || 1,
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top' },
+                            title: {
+                                display: true,
+                                text: 'Top 10 Selling Products (Last 7 Days)',
+                                font: { size: 20 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `Revenue: ₴${context.parsed.y.toFixed(2)} | Qty: ${quantities[context.dataIndex]}`;
+                                    }
+                                }
+                            },
+                            datalabels: {
+                                anchor: 'end',
+                                align: 'end',
+                                color: '#000',
+                                font: { weight: 'bold', size: 14 },
+                                formatter: (value, ctx) => quantities[ctx.dataIndex]
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    maxRotation: 60,
+                                    minRotation: 30,
+                                    font: { size: 14 },
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: { display: true, text: 'Revenue (₴)', font: { size: 16 } }
+                            }
+                        }
+                    },
+                    plugins: [ChartDataLabels] // Show quantity on top
+                });
             }
-        },
-        plugins: [ChartDataLabels]
-    });
-}
 
-// Add sorting controls to your HTML and call this function:
-function addSortingControls() {
-    // Create or update sorting controls
-    const existingControls = document.getElementById('chartSortingControls');
-    if (existingControls) {
-        existingControls.remove();
-    }
-
-    const controls = document.createElement('div');
-    controls.id = 'chartSortingControls';
-    controls.innerHTML = `
-        <div style="margin: 10px 0; text-align: center;">
-            <label style="font-weight: bold; margin-right: 10px;">Sort by:</label>
-            <button onclick="renderTopProductsChart('revenue')" 
-                    style="margin: 0 5px; padding: 5px 10px; cursor: pointer;">
-                Revenue
-            </button>
-            <button onclick="renderTopProductsChart('quantity')" 
-                    style="margin: 0 5px; padding: 5px 10px; cursor: pointer;">
-                Quantity
-            </button>
-        </div>
-    `;
-
-    const chartContainer = document.getElementById('topProductsChart').parentNode;
-    chartContainer.insertBefore(controls, document.getElementById('topProductsChart'));
-}
-
-// Initialize chart with sorting controls
-function initializeChart() {
-    addSortingControls();
-    renderTopProductsChart('revenue'); // Default to revenue sorting
-}
-
-// Call initializeChart when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    initializeChart();
-});
-
-// 🌈 Gradient helper function
-function getGradient(ctx, chartArea, colorStart, colorEnd) {
-    const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
-    gradient.addColorStop(0, colorStart);
-    gradient.addColorStop(1, colorEnd);
-    return gradient;
-}
-
+            // 🌈 Gradient helper function
+            function getGradient(ctx, chartArea, colorStart, colorEnd) {
+                const gradient = ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+                gradient.addColorStop(0, colorStart);
+                gradient.addColorStop(1, colorEnd);
+                return gradient;
+            }
 
 
         // Store entries data for JavaScript access
