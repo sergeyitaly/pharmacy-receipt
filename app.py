@@ -167,26 +167,25 @@ class OptimizedDataCollector:
         """Extract content for a single item/position"""
         try:
             content_lines = []
-            
+
             # Extract all text elements from this position
             paragraphs = position.find_all('p')
-            
             for p in paragraphs:
                 text = p.get_text(strip=True)
                 if text:
                     # Skip bold price lines (they'll be extracted separately)
                     if 'bold' not in p.get('class', []) and not re.match(r'^\d+\.\d+', text):
                         content_lines.append(text)
-            
-            # Add price information if available
-            price_section = position.select_one('div.NDS')
-            if price_section:
+
+            # 🔥 FIX: extract all price/discount blocks (not just one)
+            price_sections = position.select('div.NDS')
+            for price_section in price_sections:
                 price_texts = price_section.find_all(text=True, recursive=True)
                 for text in price_texts:
                     text = text.strip()
                     if text:
                         content_lines.append(text)
-            
+
             if content_lines:
                 item_content = "\n".join(content_lines)
                 logger.info(f"Item {item_index + 1}: extracted {len(content_lines)} lines")
@@ -194,11 +193,12 @@ class OptimizedDataCollector:
             else:
                 logger.warning(f"Item {item_index + 1}: no content found")
                 return None
-                
+
         except Exception as e:
             logger.error(f"Error extracting item {item_index + 1}: {e}")
             return None
-    
+
+
     def fetch_content(self) -> Optional[str]:
         """Fetch content with optimized approach"""
         try:
