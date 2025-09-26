@@ -15,7 +15,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Tuple
 import requests
 from contextlib import contextmanager
 import json
@@ -100,34 +100,13 @@ class OptimizedDataCollector:
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
-            # Try multiple selectors for the content we need
-            selectors_to_try = [
-                "div.chekPosition",
-                "div.check",
-                "div.check div.chekPosition",
-                "[class*='chek']",
-                "[class*='check']"
-            ]
+            # Wait for the main check container
+            check_container = WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "div.check"))
+            )
             
-            content_element = None
-            for selector in selectors_to_try:
-                try:
-                    content_element = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.CSS_SELECTOR, selector))
-                    )
-                    logger.info(f"Found content using selector: {selector}")
-                    break
-                except:
-                    continue
-            
-            if not content_element:
-                logger.warning("Could not find target elements, trying to extract from full page")
-                # Fallback: get the entire page content
-                html = driver.page_source
-                return self._extract_content_from_html(html)
-            
-            # Get the HTML of the specific element
-            html = content_element.get_attribute('outerHTML')
+            # Get the HTML of the entire check container
+            html = check_container.get_attribute('outerHTML')
             return self._extract_content_from_html(html)
             
         except Exception as e:
@@ -141,57 +120,83 @@ class OptimizedDataCollector:
                 return None
     
     def _extract_content_from_html(self, html: str) -> Optional[str]:
-        """Extract content from HTML"""
+        """Extract content from HTML - now handles multiple items per check"""
         try:
             soup = BeautifulSoup(html, "html.parser")
             
-            # More flexible element finding
-            chek_div = None
-            possible_selectors = [
-                "div.check div.chekPosition",
-                "div.chekPosition", 
-                "div.check",
-                "div[class*='chek']",
-                "div[class*='check']"
-            ]
+            # Find the main check container
+            check_div = soup.select_one('div.check')
+            if not check_div:
+                logger.warning("No check container found in HTML")
+                # Try alternative selectors
+                check_div = soup.select_one('div[class*="check"]')
+                if not check_div:
+                    logger.warning("No check container found with alternative selectors")
+                    return None
             
-            for selector in possible_selectors:
-                chek_div = soup.select_one(selector)
-                if chek_div:
-                    logger.info(f"Found div using selector: {selector}")
-                    break
+            # Find all item positions within the check
+            chek_positions = check_div.select('div.chekPosition')
+            logger.info(f"Found {len(chek_positions)} items in the check")
             
-            if not chek_div:
-                logger.warning("No target div found in HTML")
-                # Try to find any meaningful content
-                all_text = soup.get_text(separator='\n', strip=True)
-                meaningful_lines = [line for line in all_text.split('\n') if len(line.strip()) > 10]
-                if meaningful_lines:
-                    return "\n".join(meaningful_lines[:10])  # Return first 10 meaningful lines
+            if not chek_positions:
+                logger.warning("No items found within the check container")
                 return None
             
-            content_lines = []
+            all_items_content = []
             
-            # Extract text from all paragraphs except those with class 'bold'
-            paragraphs = chek_div.find_all('p')
-            for p in paragraphs:
-                if 'bold' not in p.get('class', []):
-                    text = p.get_text(strip=True)
-                    if text:
-                        content_lines.append(text)
+            # Process each item separately
+            for i, position in enumerate(chek_positions):
+                item_content = self._extract_single_item_content(position, i)
+                if item_content:
+                    all_items_content.append(item_content)
             
-            # If no paragraphs found, try to get all text
-            if not content_lines:
-                all_text = chek_div.get_text(separator='\n', strip=True)
-                content_lines = [line for line in all_text.split('\n') if line.strip()]
-            
-            content = "\n".join(content_lines)
-            logger.info(f"Extracted {len(content_lines)} lines of content")
-            
-            return content if content else None
+            if all_items_content:
+                # Join items with a separator that's easy to parse later
+                combined_content = "===ITEM_SEPARATOR===".join(all_items_content)
+                logger.info(f"Extracted {len(all_items_content)} items successfully")
+                return combined_content
+            else:
+                logger.warning("No valid content extracted from any items")
+                return None
             
         except Exception as e:
             logger.error(f"Content extraction error: {e}")
+            return None
+    
+    def _extract_single_item_content(self, position, item_index: int) -> Optional[str]:
+        """Extract content for a single item/position"""
+        try:
+            content_lines = []
+            
+            # Extract all text elements from this position
+            paragraphs = position.find_all('p')
+            
+            for p in paragraphs:
+                text = p.get_text(strip=True)
+                if text:
+                    # Skip bold price lines (they'll be extracted separately)
+                    if 'bold' not in p.get('class', []) and not re.match(r'^\d+\.\d+', text):
+                        content_lines.append(text)
+            
+            # Add price information if available
+            price_section = position.select_one('div.NDS')
+            if price_section:
+                price_texts = price_section.find_all(text=True, recursive=True)
+                for text in price_texts:
+                    text = text.strip()
+                    if text:
+                        content_lines.append(text)
+            
+            if content_lines:
+                item_content = "\n".join(content_lines)
+                logger.info(f"Item {item_index + 1}: extracted {len(content_lines)} lines")
+                return item_content
+            else:
+                logger.warning(f"Item {item_index + 1}: no content found")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error extracting item {item_index + 1}: {e}")
             return None
     
     def fetch_content(self) -> Optional[str]:
@@ -207,7 +212,7 @@ class OptimizedDataCollector:
                 content = self._extract_content_selenium(driver)
 
             if content:
-                logger.info(f"Content extracted successfully ({len(content)} characters)")
+                logger.info(f"Content extracted successfully ({len(content.split('===ITEM_SEPARATOR==='))} items)")
                 if content != self.last_content:
                     self.last_content = content
                     return content
@@ -258,11 +263,15 @@ class DataManager:
             with open(self.data_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
+            # Extract sales data from all items
+            all_sales_data = extract_sales_data(content)
+            
             entry = {
                 'timestamp': datetime.now().isoformat(),
                 'url': url,
                 'raw_content': content,
-                'sales_data': extract_sales_data(content)
+                'sales_data': all_sales_data,
+                'item_count': len(all_sales_data) if isinstance(all_sales_data, list) else 1
             }
             
             data.append(entry)
@@ -275,7 +284,7 @@ class DataManager:
             with open(self.data_file, 'w', encoding='utf-8') as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
             
-            logger.info(f"Successfully saved data entry (total entries: {len(data)})")
+            logger.info(f"Successfully saved data entry with {entry['item_count']} items (total entries: {len(data)})")
             return True
         except Exception as e:
             logger.error(f"Error saving data: {e}")
@@ -292,19 +301,40 @@ class DataManager:
             logger.error(f"Error loading data: {e}")
             return []
 
-def extract_sales_data(content: str) -> Dict[str, str]:
-    """Optimized sales data extraction"""
+def extract_sales_data(content: str) -> List[Dict[str, str]]:
+    """Extract sales data from content that may contain multiple items"""
     if not content:
-        return {}
+        return []
     
+    # Split content into individual items
+    if '===ITEM_SEPARATOR===' in content:
+        items_content = content.split('===ITEM_SEPARATOR===')
+    else:
+        # Fallback for old format or single items
+        items_content = [content]
+    
+    logger.info(f"Processing {len(items_content)} items for sales data")
+    
+    all_sales_data = []
+    
+    for i, item_content in enumerate(items_content):
+        sales_data = _extract_single_item_sales_data(item_content.strip(), i)
+        if sales_data:
+            all_sales_data.append(sales_data)
+    
+    logger.info(f"Successfully extracted data for {len(all_sales_data)} items")
+    return all_sales_data
+
+def _extract_single_item_sales_data(item_content: str, item_index: int) -> Dict[str, str]:
+    """Extract sales data for a single item"""
     sales_data = {
         'product_name': '', 'uktzed': '', 'barcode': '', 'quantity': '1',
         'unit_price': '', 'total_price': '', 'currency': 'UAH',
-        'price_details': '', 'price_breakdown': ''
+        'price_details': '', 'price_breakdown': '', 'item_index': item_index
     }
     
-    lines = [line.strip() for line in content.split('\n') if line.strip()]
-    logger.info(f"Processing {len(lines)} lines for sales data")
+    lines = [line.strip() for line in item_content.split('\n') if line.strip()]
+    logger.info(f"Item {item_index + 1}: Processing {len(lines)} lines")
     
     identified_patterns = set()
     
@@ -313,15 +343,15 @@ def extract_sales_data(content: str) -> Dict[str, str]:
         if 'УКТЗЕД' in line:
             sales_data['uktzed'] = line.replace('УКТЗЕД', '').strip()
             identified_patterns.add(line)
-            logger.info(f"Found UKTZED: {sales_data['uktzed']}")
+            logger.info(f"Item {item_index + 1}: Found UKTZED: {sales_data['uktzed']}")
         elif 'Штрих-код' in line:
             sales_data['barcode'] = line.replace('Штрих-код', '').strip()
             identified_patterns.add(line)
-            logger.info(f"Found barcode: {sales_data['barcode']}")
+            logger.info(f"Item {item_index + 1}: Found barcode: {sales_data['barcode']}")
         elif '*' in line and any(char.isdigit() for char in line) and 'шт' in line:
             sales_data['price_details'] = line
             identified_patterns.add(line)
-            logger.info(f"Found price details: {line}")
+            logger.info(f"Item {item_index + 1}: Found price details: {line}")
             # Parse unit price and quantity
             parts = line.split('*')
             if len(parts) >= 2:
@@ -329,13 +359,17 @@ def extract_sales_data(content: str) -> Dict[str, str]:
                 quantity_match = re.search(r'(\d+)\s*шт', parts[1])
                 if quantity_match:
                     sales_data['quantity'] = quantity_match.group(1)
-        elif '(Б)' in line and any(char.isdigit() for char in line):
+        elif any(marker in line for marker in ['(А)', '(Б)', '(В)']) and any(char.isdigit() for char in line):
             sales_data['price_breakdown'] = line
             identified_patterns.add(line)
-            logger.info(f"Found price breakdown: {line}")
-            price_match = re.search(r'^([\d\.,]+)', line)
+            logger.info(f"Item {item_index + 1}: Found price breakdown: {line}")
+            price_match = re.search(r'([\d\.,]+)\s*\([А-Г]\)', line)
             if price_match:
                 sales_data['total_price'] = price_match.group(1)
+        elif re.match(r'^\d+[\.,]?\d*\s*$', line) and len(line) < 10:
+            # This might be a price line
+            if not sales_data['total_price']:
+                sales_data['total_price'] = line.strip()
     
     # Find product name (longest line not matching patterns)
     candidate_lines = [
@@ -343,27 +377,35 @@ def extract_sales_data(content: str) -> Dict[str, str]:
         if (line not in identified_patterns and 
             not line.isdigit() and 
             not re.match(r'^\d+[\.,]\d+$', line) and 
-            len(line) >= 5)
+            len(line) >= 5 and
+            'УКТЗЕД' not in line and
+            'Штрих-код' not in line)
     ]
     
     if candidate_lines:
+        # Use the longest candidate line as product name
         sales_data['product_name'] = max(candidate_lines, key=len)
-        logger.info(f"Found product name: {sales_data['product_name']}")
+        logger.info(f"Item {item_index + 1}: Found product name: {sales_data['product_name']}")
     elif lines:
         # Fallback: first non-pattern line
         for line in lines:
             if line not in identified_patterns:
                 sales_data['product_name'] = line
-                logger.info(f"Using fallback product name: {sales_data['product_name']}")
+                logger.info(f"Item {item_index + 1}: Using fallback product name: {sales_data['product_name']}")
                 break
     
     # Calculate prices if missing
     _calculate_missing_prices(sales_data)
     
-    return sales_data
+    # Only return if we have meaningful data
+    if sales_data['product_name'] or sales_data['uktzed'] or sales_data['barcode']:
+        return sales_data
+    else:
+        logger.warning(f"Item {item_index + 1}: No meaningful data found")
+        return None
 
 def _calculate_missing_prices(sales_data: Dict):
-    """Calculate missing price values"""
+    """Calculate missing price values for a single item"""
     try:
         # Unit price from total and quantity
         if (not sales_data['unit_price'] and sales_data['total_price'] 
@@ -441,6 +483,7 @@ def collect_and_save_data():
             logger.info(f"💤 Sleeping for {error_interval} seconds after error...")
             time.sleep(error_interval)
 
+
 # Initialize data manager instance
 data_manager = DataManager()
 
@@ -450,13 +493,29 @@ def index():
     entries = data_manager.load_data()
     entries.reverse()  # Show latest first
     
-    totals = calculate_totals(entries)
+    # Flatten the data for display - each item becomes a separate row
+    flattened_entries = []
+    for entry in entries:
+        sales_data_list = entry.get('sales_data', [])
+        if isinstance(sales_data_list, list):
+            for item_data in sales_data_list:
+                flattened_entries.append({
+                    'timestamp': entry.get('timestamp'),
+                    'url': entry.get('url'),
+                    'sales_data': item_data
+                })
+        else:
+            # Backward compatibility with single-item entries
+            flattened_entries.append(entry)
+    
+    totals = calculate_totals(flattened_entries)
     
     return render_template('index.html', 
-                         entries=entries, 
-                         total_entries=len(entries),
+                         entries=flattened_entries, 
+                         total_entries=len(flattened_entries),
                          totals=totals,
                          now=datetime.now())
+
 
 @app.route('/export/csv')
 def export_csv():
@@ -684,3 +743,4 @@ if __name__ == '__main__':
         
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
+        
