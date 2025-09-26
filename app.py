@@ -427,7 +427,7 @@ def _calculate_missing_prices(sales_data: Dict):
 
 def collect_and_save_data():
     """Optimized data collection with configurable intervals"""
-    url = os.getenv('TARGET_URL', 'https://help.apteka911.com.ua/receipt/?id=44882428-7730-4B5E-926B-21F2C92FE0CC')
+    url = os.getenv('TARGET_URL', 'example.com')
     if not url:
         logger.error("TARGET_URL environment variable not set!")
         return
@@ -743,4 +743,3 @@ if __name__ == '__main__':
         
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
-        
