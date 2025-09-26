@@ -1,453 +1,139 @@
-        :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8f9fa;
-            --bg-tertiary: #e9ecef;
-            --text-primary: #212529;
-            --text-secondary: #6c757d;
-            --border-color: #dee2e6;
-            --accent-color: #007bff;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --shadow: 0 2px 8px rgba(0,0,0,0.1);
-            --card-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
+:root {
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8f9fa;
+    --bg-tertiary: #e9ecef;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --border-color: #dee2e6;
+    --accent-color: #007bff;
+    --success-color: #28a745;
+    --danger-color: #dc3545;
+    --shadow: 0 2px 8px rgba(0,0,0,0.1);
+    --card-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
 
-        [data-theme="dark"] {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
-            --bg-tertiary: #3d3d3d;
-            --text-primary: #f8f9fa;
-            --text-secondary: #adb5bd;
-            --border-color: #495057;
-            --accent-color: #4dabf7;
-            --success-color: #51cf66;
-            --danger-color: #ff6b6b;
-            --shadow: 0 2px 8px rgba(0,0,0,0.3);
-            --card-shadow: 0 4px 12px rgba(0,0,0,0.4);
-        }
+[data-theme="dark"] {
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #2d2d2d;
+    --bg-tertiary: #3d3d3d;
+    --text-primary: #f8f9fa;
+    --text-secondary: #adb5bd;
+    --border-color: #495057;
+    --accent-color: #4dabf7;
+    --success-color: #51cf66;
+    --danger-color: #ff6b6b;
+    --shadow: 0 2px 8px rgba(0,0,0,0.3);
+    --card-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: var(--bg-primary);
-            color: var(--text-primary);
-            line-height: 1.6;
-            transition: all 0.3s ease;
-            padding: 0;
-        }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    transition: all 0.3s ease;
+    padding: 0;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 1rem;
-        }
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1rem;
+}
 
-        .header {
-            display: flex;
-            justify-content: between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
 
-        .theme-toggle {
-            background: none;
-            border: 2px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 0.5rem 1rem;
-            border-radius: 25px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.3s ease;
-        }
+.theme-toggle {
+    background: none;
+    border: 2px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
 
-        .theme-toggle:hover {
-            border-color: var(--accent-color);
-        }
+.theme-toggle:hover {
+    border-color: var(--accent-color);
+}
 
-        .totals-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
+.view-toggle {
+    background: var(--bg-tertiary);
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+}
 
-        .total-card {
-            background: var(--bg-secondary);
-            padding: 1.5rem;
-            border-radius: 12px;
-            box-shadow: var(--shadow);
-            text-align: center;
-        }
+.totals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
 
-        .total-card h3 {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
+.total-card {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    text-align: center;
+}
 
-        .total-value {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: var(--accent-color);
-        }
+.total-card h3 {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
 
-        .sales-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 2rem;
-            background: var(--bg-primary);
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-        }
+.total-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--accent-color);
+}
 
-        .sales-table th {
-            background: var(--bg-tertiary);
-            padding: 1rem;
-            font-weight: 600;
-            text-align: left;
-            border-bottom: 2px solid var(--border-color);
-        }
+/* Chart Section Styles */
+.chart-section {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
+}
 
-        .sales-table td {
-            padding: 1rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .sales-table tr:hover {
-            background: var(--bg-secondary);
-        }
-
-        .mobile-card {
-            display: none;
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            box-shadow: var(--shadow);
-        }
-
-        .mobile-card .card-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.5rem;
-        }
-
-        .mobile-card .card-label {
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        .actions {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            margin-bottom: 1rem;
-        }
-
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: var(--accent-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-        }
-
-        .btn-copy {
-            background: var(--success-color);
-            color: white;
-            padding: 0.5rem 1rem;
-            font-size: 0.9rem;
-        }
-
-        .footer {
-            text-align: center;
-            margin-top: 2rem;
-            padding: 1rem;
-            color: var(--text-secondary);
-            border-top: 1px solid var(--border-color);
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 1rem 1.5rem;
-            background: var(--success-color);
-            color: white;
-            border-radius: 12px;
-            box-shadow: var(--card-shadow);
-            z-index: 1000;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            animation: slideIn 0.3s ease;
-        }
-
-        .notification.error {
-            background: var(--danger-color);
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        /* Mobile responsiveness */
-        @media (max-width: 768px) {
-            .container {
-                padding: 0.5rem;
-            }
-
-            .sales-table {
-                display: none;
-            }
-
-            .mobile-card {
-                display: block;
-            }
-
-            .totals-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .total-card {
-                padding: 1rem;
-            }
-
-            .total-value {
-                font-size: 1.5rem;
-            }
-
-            .header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .actions {
-                flex-direction: column;
-            }
-
-            .btn {
-                justify-content: center;
-            }
-        }
-
-        @media (min-width: 769px) {
-            .mobile-card {
-                display: none;
-            }
-
-            .sales-table {
-                display: table;
-            }
-        }
-
-        /* Compact view */
-        .compact .sales-table td,
-        .compact .sales-table th {
-            padding: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .compact .total-card {
-            padding: 1rem;
-        }
-
-        .compact .total-value {
-            font-size: 1.4rem;
-        }
-
-        .view-toggle {
-            background: var(--bg-tertiary);
-            border: none;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--text-primary);
-        }
-
-
-        .chart-container {
-            position: relative;
-            height: 400px;
-            width: 100%;
-            margin: 20px 0;
-        }
-        
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px;
-            background: #4CAF50;
-            color: white;
-            border-radius: 5px;
-            z-index: 1000;
-        }
-        
-        .notification.error {
-            background: #f44336;
-        }
-
-                .chart-container {
-            position: relative;
-            height: 400px;
-            width: 100%;
-            margin: 20px 0;
-        }
-        
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px;
-            background: #4CAF50;
-            color: white;
-            border-radius: 5px;
-            z-index: 1000;
-        }
-        
-        .notification.error {
-            background: #f44336;
-        }
-        
-        /* Sorting indicator styles */
-        .sortable {
-            cursor: pointer;
-            position: relative;
-            user-select: none;
-        }
-        
-        .sortable:hover {
-            background-color: rgba(0,0,0,0.05);
-        }
-        
-        .sortable .sort-icon {
-            margin-left: 5px;
-            opacity: 0.5;
-        }
-        
-        .sortable.sorted-asc .sort-icon,
-        .sortable.sorted-desc .sort-icon {
-            opacity: 1;
-        }
-        
-        .sortable.sorted-asc .sort-icon::before {
-            content: "↑";
-        }
-        
-        .sortable.sorted-desc .sort-icon::before {
-            content: "↓";
-        }
-        
-        /* Table styles */
-        .sales-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        
-        .sales-table th, .sales-table td {
-            padding: 12px 15px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .sales-table th {
-            background-color: #f8f9fa;
-            font-weight: 600;
-        }
-        
-        .sales-table tr:hover {
-            background-color: #f5f5f5;
-        }
-        .sort-btn {
-            margin: 0 5px;
-            padding: 8px 16px;
-            cursor: pointer;
-            border: 2px solid #007bff;
-            background: white;
-            color: #007bff;
-            border-radius: 5px;
-            font-weight: bold;
-            transition: all 0.3s ease;
-        }
-        
-        .sort-btn.active {
-            background: #007bff;
-            color: white;
-        }
-        
-        .sort-btn:hover {
-            background: #0056b3;
-            color: white;
-        }
-        
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 5px;
-            color: white;
-            font-weight: bold;
-            z-index: 1000;
-            animation: slideIn 0.3s ease;
-        }
-        
-        .notification.success {
-            background: #28a745;
-        }
-        
-        .notification.error {
-            background: #dc3545;
-        }
-        
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        /* High-DPI Chart Canvas Fixes */
 .chart-container {
     position: relative;
     width: 100%;
-    height: 500px;
+    height: 600px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
 }
 
 #topProductsChart {
@@ -457,67 +143,292 @@
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Improved font rendering */
-body {
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-smoothing: antialiased;
-}
-
-/* Sort button improvements */
-.sort-btn {
-    margin: 0 5px;
-    padding: 10px 20px;
-    cursor: pointer;
-    border: 2px solid #007bff;
-    background: white;
-    color: #007bff;
-    border-radius: 6px;
-    font-weight: 600;
-    font-family: "'Segoe UI', 'Arial', sans-serif";
-    font-size: 14px;
-    transition: all 0.3s ease;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-}
-
-.sort-btn.active {
-    background: #007bff;
-    color: white;
-    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
-}
-
-.sort-btn:hover {
-    background: #0056b3;
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
-}
-
-/* Chart section improvements */
-.chart-section {
-    background: var(--card-bg);
-    border-radius: 12px;
-    padding: 25px;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    border: 1px solid var(--border-color);
-}
-
 #chartSortingControls {
-    margin: 20px 0;
+    margin: 25px 0;
     text-align: center;
-    padding: 15px;
+    padding: 20px;
     background: var(--bg-secondary);
-    border-radius: 8px;
+    border-radius: 10px;
     border: 1px solid var(--border-color);
 }
 
 #chartSortingControls label {
     font-weight: 600;
-    font-size: 15px;
-    color: var(--text-color);
-    font-family: "'Segoe UI', 'Arial', sans-serif";
-    margin-right: 15px;
+    font-size: 18px;
+    color: var(--text-primary);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin-right: 20px;
+}
+
+.sort-btn {
+    margin: 0 8px;
+    padding: 12px 24px;
+    cursor: pointer;
+    border: 2px solid var(--accent-color);
+    background: var(--bg-primary);
+    color: var(--accent-color);
+    border-radius: 8px;
+    font-weight: 600;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    -webkit-font-smoothing: antialiased;
+}
+
+.sort-btn.active {
+    background: var(--accent-color);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+}
+
+.sort-btn:hover {
+    background: var(--accent-color);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 123, 255, 0.5);
+}
+
+/* Table Styles */
+.sales-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 2rem;
+    background: var(--bg-primary);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+.sales-table th, .sales-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sales-table th {
+    background-color: var(--bg-tertiary);
+    font-weight: 600;
+}
+
+.sales-table tr:hover {
+    background-color: var(--bg-secondary);
+}
+
+.sortable {
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+}
+
+.sortable:hover {
+    background-color: var(--bg-secondary);
+}
+
+.sortable .sort-icon {
+    margin-left: 5px;
+    opacity: 0.5;
+}
+
+.sortable.sorted-asc .sort-icon,
+.sortable.sorted-desc .sort-icon {
+    opacity: 1;
+}
+
+.sortable.sorted-asc .sort-icon::before {
+    content: "↑";
+}
+
+.sortable.sorted-desc .sort-icon::before {
+    content: "↓";
+}
+
+/* Mobile Cards */
+.mobile-card {
+    display: none;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow);
+}
+
+.mobile-card .card-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.mobile-card .card-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Action Buttons */
+.actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: var(--accent-color);
+    color: white;
+}
+
+.btn-primary:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.btn-copy {
+    background: var(--success-color);
+    color: white;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+/* Notifications */
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    background: var(--success-color);
+    color: white;
+    border-radius: 12px;
+    box-shadow: var(--card-shadow);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    animation: slideIn 0.3s ease;
+}
+
+.notification.error {
+    background: var(--danger-color);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Footer */
+.footer {
+    text-align: center;
+    margin-top: 2rem;
+    padding: 1rem;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border-color);
+}
+
+/* Compact View */
+.compact .sales-table td,
+.compact .sales-table th {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.compact .total-card {
+    padding: 1rem;
+}
+
+.compact .total-value {
+    font-size: 1.4rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .container {
+        padding: 0.5rem;
+    }
+
+    .sales-table {
+        display: none;
+    }
+
+    .mobile-card {
+        display: block;
+    }
+
+    .totals-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .total-card {
+        padding: 1rem;
+    }
+
+    .total-value {
+        font-size: 1.5rem;
+    }
+
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        justify-content: center;
+    }
+
+    .chart-container {
+        height: 500px;
+        padding: 15px;
+    }
+    
+    .sort-btn {
+        padding: 10px 16px;
+        font-size: 14px;
+        margin: 5px;
+    }
+    
+    #chartSortingControls label {
+        font-size: 16px;
+        display: block;
+        margin-bottom: 10px;
+    }
+
+    .chart-section {
+        padding: 20px;
+    }
+
+    #chartSortingControls {
+        padding: 15px;
+        margin: 15px 0;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-card {
+        display: none;
+    }
+
+    .sales-table {
+        display: table;
+    }
 }
