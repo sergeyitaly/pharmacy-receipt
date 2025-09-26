@@ -50,9 +50,9 @@
         <div class="chart-section">
             <h2>Top 10 Selling Products (Last 7 Days)</h2>
             
-            {% if top_products %}
+            {% if top_products and top_products|length > 0 %}
             <div class="chart-container">
-                <canvas id="topProductsChart" width="400" height="200"></canvas>
+                <canvas id="topProductsChart"></canvas>
             </div>
             
             <div class="top-products-table">
@@ -289,6 +289,9 @@
                 document.body.classList.add('compact');
             }
 
+            // Render the chart
+            renderTopProductsChart();
+
             // Auto-refresh every 60 seconds
             setTimeout(() => {
                 location.reload();
@@ -297,18 +300,32 @@
 
         // Top Products Chart
         function renderTopProductsChart() {
-            const topProducts = {{ top_products | tojson }};
+            const topProducts = {{ top_products | tojson | safe }};
+            
+            console.log('Top products data:', topProducts); // Debug log
             
             if (topProducts && topProducts.length > 0) {
-                const ctx = document.getElementById('topProductsChart').getContext('2d');
+                const ctx = document.getElementById('topProductsChart');
+                
+                if (!ctx) {
+                    console.error('Chart canvas element not found');
+                    return;
+                }
                 
                 const productNames = topProducts.map(p => 
-                    p.product_name.length > 30 ? p.product_name.substring(0, 30) + '...' : p.product_name
+                    p.product_name && p.product_name.length > 30 ? 
+                    p.product_name.substring(0, 30) + '...' : 
+                    (p.product_name || 'Unknown Product')
                 );
-                const revenues = topProducts.map(p => p.total_revenue);
-                const quantities = topProducts.map(p => p.total_quantity);
+                const revenues = topProducts.map(p => p.total_revenue || 0);
+                const quantities = topProducts.map(p => p.total_quantity || 0);
                 
-                new Chart(ctx, {
+                // Destroy existing chart if it exists
+                if (window.topProductsChartInstance) {
+                    window.topProductsChartInstance.destroy();
+                }
+                
+                window.topProductsChartInstance = new Chart(ctx, {
                     type: 'bar',
                     data: {
                         labels: productNames,
@@ -331,11 +348,18 @@
                     },
                     options: {
                         responsive: true,
+                        maintainAspectRatio: false,
                         interaction: {
                             mode: 'index',
                             intersect: false,
                         },
                         scales: {
+                            x: {
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 0
+                                }
+                            },
                             y: {
                                 type: 'linear',
                                 display: true,
@@ -343,7 +367,8 @@
                                 title: {
                                     display: true,
                                     text: 'Revenue (₴)'
-                                }
+                                },
+                                beginAtZero: true
                             },
                             y1: {
                                 type: 'linear',
@@ -356,6 +381,7 @@
                                 grid: {
                                     drawOnChartArea: false,
                                 },
+                                beginAtZero: true
                             }
                         },
                         plugins: {
@@ -370,24 +396,31 @@
                                 callbacks: {
                                     label: function(context) {
                                         if (context.dataset.label.includes("Revenue")) {
-                                            return `${context.dataset.label}: ₴${context.formattedValue}`;
+                                            return `${context.dataset.label}: ₴${context.parsed.y.toFixed(2)}`;
                                         }
-                                        return `${context.dataset.label}: ${context.formattedValue}`;
+                                        return `${context.dataset.label}: ${context.parsed.y}`;
                                     }
                                 }
                             }
                         }
                     }
                 });
+                
+                console.log('Chart rendered successfully');
+            } else {
+                console.log('No chart data available');
             }
         }
 
-        document.addEventListener('DOMContentLoaded', renderTopProductsChart);
-
         // Store entries data for JavaScript access
-        const salesData = {{ entries | tojson }};
+        const salesData = {{ entries | tojson | safe }};
 
         function copySaleData(index) {
+            if (!salesData || !salesData[index]) {
+                showNotification('Sale data not found', 'error');
+                return;
+            }
+            
             const sale = salesData[index];
             const text = `Pharmacy Sale Record:
 Timestamp: ${sale.timestamp || 'N/A'}
@@ -402,6 +435,22 @@ Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴`;
         }
 
         function copyToClipboard(text) {
+            if (!navigator.clipboard) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    showNotification('Copied to clipboard! Ready for ChatGPT analysis.');
+                } catch (err) {
+                    showNotification('Failed to copy to clipboard', 'error');
+                }
+                document.body.removeChild(textArea);
+                return;
+            }
+            
             navigator.clipboard.writeText(text).then(() => {
                 showNotification('Copied to clipboard! Ready for ChatGPT analysis.');
             }).catch(err => {
@@ -411,6 +460,10 @@ Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴`;
         }
 
         function showNotification(message, type = 'success') {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(notif => notif.remove());
+            
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
             notification.innerHTML = `
@@ -421,7 +474,9 @@ Total Price: ${sale.sales_data?.total_price || 'N/A'} ₴`;
             document.body.appendChild(notification);
             
             setTimeout(() => {
-                notification.remove();
+                if (notification.parentNode) {
+                    notification.remove();
+                }
             }, 3000);
         }
     </script>

@@ -300,3 +300,26 @@
             gap: 0.5rem;
             color: var(--text-primary);
         }
+
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin: 20px 0;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            background: #4CAF50;
+            color: white;
+            border-radius: 5px;
+            z-index: 1000;
+        }
+        
+        .notification.error {
+            background: #f44336;
+        }
