@@ -465,3 +465,17 @@ body {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.1);
 }
+/* AI Analysis cache indicator */
+.cache-indicator {
+    font-size: 12px;
+    color: #666;
+    background: rgba(0,0,0,0.1);
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 10px;
+}
+
+[data-theme="dark"] .cache-indicator {
+    color: #ccc;
+    background: rgba(255,255,255,0.1);
+}

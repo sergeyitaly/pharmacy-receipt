@@ -22,6 +22,31 @@ import json
 from collections import defaultdict, Counter
 import openai
 import os
+
+from datetime import datetime, timedelta
+
+class SimpleCache:
+    def __init__(self):
+        self._cache = {}
+    
+    def set(self, key, value, timeout=3600):
+        self._cache[key] = {
+            'value': value,
+            'expires': datetime.now() + timedelta(seconds=timeout)
+        }
+    
+    def get(self, key):
+        if key in self._cache:
+            entry = self._cache[key]
+            if datetime.now() < entry['expires']:
+                return entry['value']
+            else:
+                del self._cache[key]
+        return None
+
+# Initialize cache
+cache = SimpleCache()
+
 # Load environment variables
 load_dotenv('config/.env')
 
@@ -38,12 +63,25 @@ def ai_analysis():
     try:
         data = request.get_json()
         products = data.get('products', [])
+        products_hash = data.get('products_hash')
         
         if not products:
             return jsonify({'error': 'No products data provided'}), 400
         
         if not openai.api_key:
             return jsonify({'error': 'OpenAI API key not configured'}), 500
+        
+        # Check if we have a cached result for this hash
+        if products_hash:
+            cache_key = f"ai_analysis_{products_hash}"
+            cached_result = cache.get(cache_key)
+            if cached_result:
+                logger.info("Returning cached AI analysis result")
+                return jsonify({
+                    'analysis': cached_result,
+                    'cached': True,
+                    'products_analyzed': len(products)
+                })
         
         # Prepare prompt for analysis
         prompt = f"""
@@ -73,15 +111,21 @@ def ai_analysis():
         
         analysis = response.choices[0].message.content.strip()
         
+        # Cache the result for 1 hour
+        if products_hash:
+            cache_key = f"ai_analysis_{products_hash}"
+            cache.set(cache_key, analysis, timeout=3600)  # 1 hour cache
+        
         return jsonify({
             'analysis': analysis,
+            'cached': False,
             'products_analyzed': len(products)
         })
         
     except Exception as e:
         logger.error(f"AI Analysis error: {e}")
         return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
-    
+        
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

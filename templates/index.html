@@ -375,10 +375,34 @@
             // Initialize chart
             initializeChart();
 
-            // Auto-refresh every 60 seconds
+            // Load cached AI analysis on startup
+            loadCachedAnalysisOnStartup();
+
+            // Auto-refresh every 60 seconds (but preserve AI analysis)
             setTimeout(() => {
+                // Save current AI analysis state
+                const currentAnalysis = document.getElementById('aiAnalysisResult').innerHTML;
+                const isAnalysisVisible = document.getElementById('aiAnalysisResult').style.display !== 'none';
+                
+                localStorage.setItem('preserved_analysis', currentAnalysis);
+                localStorage.setItem('analysis_visible', isAnalysisVisible.toString());
+                
                 location.reload();
             }, 60000);
+
+            // Restore preserved analysis after page load
+            const preservedAnalysis = localStorage.getItem('preserved_analysis');
+            const wasAnalysisVisible = localStorage.getItem('analysis_visible') === 'true';
+            
+            if (preservedAnalysis && wasAnalysisVisible) {
+                const resultDiv = document.getElementById('aiAnalysisResult');
+                resultDiv.innerHTML = preservedAnalysis;
+                resultDiv.style.display = 'block';
+                
+                // Clean up
+                localStorage.removeItem('preserved_analysis');
+                localStorage.removeItem('analysis_visible');
+            }
         });
 
     function renderTopProductsChart(sortBy = 'revenue') {
@@ -672,7 +696,7 @@
         }
 
 
-        async function performAIAnalysis() {
+async function performAIAnalysis() {
     const btn = document.getElementById('aiAnalysisBtn');
     const resultDiv = document.getElementById('aiAnalysisResult');
     const originalText = btn.innerHTML;
@@ -689,6 +713,16 @@
             throw new Error('No sales data available for analysis');
         }
 
+        // Create a unique hash of current top products to detect changes
+        const productsHash = generateProductsHash(topProducts);
+        const cachedAnalysis = getCachedAnalysis(productsHash);
+        
+        if (cachedAnalysis) {
+            // Use cached analysis if available and products haven't changed
+            displayAnalysisResult(cachedAnalysis, 'Cached analysis (products unchanged)');
+            return;
+        }
+
         // Prepare data for analysis
         const analysisData = topProducts.map(product => ({
             product_name: product.product_name,
@@ -702,7 +736,10 @@
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ products: analysisData })
+            body: JSON.stringify({ 
+                products: analysisData,
+                products_hash: productsHash  // Send hash to server for caching
+            })
         });
 
         if (!response.ok) {
@@ -711,30 +748,130 @@
 
         const result = await response.json();
         
+        // Cache the analysis result
+        cacheAnalysisResult(productsHash, result.analysis);
+        
         // Display results
-        resultDiv.innerHTML = `
-            <div style="background: var(--card-bg); padding: 20px; border-radius: 8px; border-left: 4px solid #4CAF50;">
-                <h3 style="margin-top: 0; color: var(--text-color);"><i class="fas fa-chart-line"></i> AI Analysis Results</h3>
-                <div style="color: var(--text-color); line-height: 1.6;">${result.analysis}</div>
-            </div>
-        `;
-        resultDiv.style.display = 'block';
-
+        displayAnalysisResult(result.analysis, 'Fresh analysis');
+        
     } catch (error) {
         console.error('AI Analysis error:', error);
-        resultDiv.innerHTML = `
-            <div style="background: #ffebee; padding: 15px; border-radius: 8px; border-left: 4px solid #f44336;">
-                <h4 style="margin-top: 0; color: #c62828;"><i class="fas fa-exclamation-triangle"></i> Analysis Error</h4>
-                <p style="color: #c62828; margin: 0;">Failed to perform analysis: ${error.message}</p>
-            </div>
-        `;
-        resultDiv.style.display = 'block';
+        displayAnalysisError(error.message);
     } finally {
         // Reset button
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
 }
+
+// Helper function to generate a hash of current products
+function generateProductsHash(products) {
+    const productString = products.map(p => 
+        `${p.product_name}-${p.total_quantity}-${p.total_revenue}`
+    ).join('|');
+    
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < productString.length; i++) {
+        const char = productString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString();
+}
+
+// Helper function to get cached analysis
+function getCachedAnalysis(productsHash) {
+    try {
+        const cached = localStorage.getItem('ai_analysis_cache');
+        if (cached) {
+            const cacheData = JSON.parse(cached);
+            if (cacheData.products_hash === productsHash) {
+                console.log('Using cached AI analysis');
+                return cacheData.analysis;
+            }
+        }
+    } catch (e) {
+        console.warn('Error reading cache:', e);
+    }
+    return null;
+}
+
+// Helper function to cache analysis result
+function cacheAnalysisResult(productsHash, analysis) {
+    try {
+        const cacheData = {
+            products_hash: productsHash,
+            analysis: analysis,
+            timestamp: new Date().toISOString()
+        };
+        localStorage.setItem('ai_analysis_cache', JSON.stringify(cacheData));
+        console.log('AI analysis cached');
+    } catch (e) {
+        console.warn('Error caching analysis:', e);
+    }
+}
+
+// Helper function to display analysis result
+function displayAnalysisResult(analysis, source) {
+    const resultDiv = document.getElementById('aiAnalysisResult');
+    resultDiv.innerHTML = `
+        <div style="background: var(--card-bg); padding: 20px; border-radius: 8px; border-left: 4px solid #4CAF50;">
+            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 10px;">
+                <h3 style="margin: 0; color: var(--text-color); flex: 1;">
+                    <i class="fas fa-chart-line"></i> AI Analysis Results
+                </h3>
+                <span style="font-size: 12px; color: #666; background: rgba(0,0,0,0.1); padding: 2px 8px; border-radius: 12px;">
+                    ${source}
+                </span>
+                <button onclick="clearAIAnalysisCache()" style="background: none; border: none; color: #666; cursor: pointer; margin-left: 10px;" title="Clear cache">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div style="color: var(--text-color); line-height: 1.6;">${analysis}</div>
+        </div>
+    `;
+    resultDiv.style.display = 'block';
+}
+
+// Helper function to display error
+function displayAnalysisError(errorMessage) {
+    const resultDiv = document.getElementById('aiAnalysisResult');
+    resultDiv.innerHTML = `
+        <div style="background: #ffebee; padding: 15px; border-radius: 8px; border-left: 4px solid #f44336;">
+            <h4 style="margin-top: 0; color: #c62828;">
+                <i class="fas fa-exclamation-triangle"></i> Analysis Error
+            </h4>
+            <p style="color: #c62828; margin: 0;">Failed to perform analysis: ${errorMessage}</p>
+        </div>
+    `;
+    resultDiv.style.display = 'block';
+}
+
+// Function to clear the cache
+function clearAIAnalysisCache() {
+    localStorage.removeItem('ai_analysis_cache');
+    const resultDiv = document.getElementById('aiAnalysisResult');
+    resultDiv.style.display = 'none';
+    showNotification('AI analysis cache cleared', 'success');
+}
+
+// Load cached analysis on page load
+function loadCachedAnalysisOnStartup() {
+    const topProducts = {{ top_products | tojson | safe }};
+    if (topProducts && topProducts.length > 0) {
+        const productsHash = generateProductsHash(topProducts);
+        const cachedAnalysis = getCachedAnalysis(productsHash);
+        
+        if (cachedAnalysis) {
+            // Small delay to ensure DOM is fully ready
+            setTimeout(() => {
+                displayAnalysisResult(cachedAnalysis, 'Cached analysis (auto-restored)');
+            }, 100);
+        }
+    }
+}
+
     </script>
 
 </body>
