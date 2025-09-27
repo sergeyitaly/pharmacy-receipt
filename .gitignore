@@ -1,3 +1,4 @@
 config/
 venv/
 collected_data.txt
+.env

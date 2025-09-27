@@ -20,12 +20,68 @@ import requests
 from contextlib import contextmanager
 import json
 from collections import defaultdict, Counter
-
+import openai
+import os
 # Load environment variables
 load_dotenv('config/.env')
 
 app = Flask(__name__)
 
+
+
+# Configure OpenAI
+openai.api_key = os.getenv('OPENAI_API_KEY')
+
+@app.route('/ai-analysis', methods=['POST'])
+def ai_analysis():
+    """Perform AI analysis on top selling products"""
+    try:
+        data = request.get_json()
+        products = data.get('products', [])
+        
+        if not products:
+            return jsonify({'error': 'No products data provided'}), 400
+        
+        if not openai.api_key:
+            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        
+        # Prepare prompt for analysis
+        prompt = f"""
+        Analyze these top 10 pharmacy products and provide insights about potential diseases they might be treating.
+        
+        Products data:
+        {json.dumps(products, indent=2, ensure_ascii=False)}
+        
+        Please provide a concise analysis (4-5 sentences) focusing on:
+        1. 3 most likely diseases/conditions these products treat
+        2. Percentage coverage of each disease category
+        3. Potential health awareness insights
+        
+        Format the response in a clear, professional manner suitable for pharmacy business analysis.
+        """
+        
+        # Call OpenAI API
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a pharmaceutical business analyst. Provide concise, professional analysis of pharmacy sales data."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=300,
+            temperature=0.7
+        )
+        
+        analysis = response.choices[0].message.content.strip()
+        
+        return jsonify({
+            'analysis': analysis,
+            'products_analyzed': len(products)
+        })
+        
+    except Exception as e:
+        logger.error(f"AI Analysis error: {e}")
+        return jsonify({'error': f'Analysis failed: {str(e)}'}), 500
+    
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
