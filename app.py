@@ -231,7 +231,84 @@ class OptimizedDataCollector:
                 logger.error(f"Fallback extraction also failed: {fallback_error}")
                 return None
 
-    # Keep your existing _extract_content_from_html and _extract_single_item_content methods
+    def _extract_content_from_html(self, html: str) -> Optional[str]:
+        """Extract content from HTML - now handles multiple items per check"""
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+            
+            # Find the main check container
+            check_div = soup.select_one('div.check')
+            if not check_div:
+                logger.warning("No check container found in HTML")
+                # Try alternative selectors
+                check_div = soup.select_one('div[class*="check"]')
+                if not check_div:
+                    logger.warning("No check container found with alternative selectors")
+                    return None
+            
+            # Find all item positions within the check
+            chek_positions = check_div.select('div.chekPosition')
+            logger.info(f"Found {len(chek_positions)} items in the check")
+            
+            if not chek_positions:
+                logger.warning("No items found within the check container")
+                return None
+            
+            all_items_content = []
+            
+            # Process each item separately
+            for i, position in enumerate(chek_positions):
+                item_content = self._extract_single_item_content(position, i)
+                if item_content:
+                    all_items_content.append(item_content)
+            
+            if all_items_content:
+                # Join items with a separator that's easy to parse later
+                combined_content = "===ITEM_SEPARATOR===".join(all_items_content)
+                logger.info(f"Extracted {len(all_items_content)} items successfully")
+                return combined_content
+            else:
+                logger.warning("No valid content extracted from any items")
+                return None
+            
+        except Exception as e:
+            logger.error(f"Content extraction error: {e}")
+            return None
+    
+    def _extract_single_item_content(self, position, item_index: int) -> Optional[str]:
+        """Extract content for a single item/position"""
+        try:
+            content_lines = []
+
+            # Extract all text elements from this position
+            paragraphs = position.find_all('p')
+            for p in paragraphs:
+                text = p.get_text(strip=True)
+                if text:
+                    # Skip bold price lines (they'll be extracted separately)
+                    if 'bold' not in p.get('class', []) and not re.match(r'^\d+\.\d+', text):
+                        content_lines.append(text)
+
+            # 🔥 FIX: extract all price/discount blocks (not just one)
+            price_sections = position.select('div.NDS')
+            for price_section in price_sections:
+                price_texts = price_section.find_all(text=True, recursive=True)
+                for text in price_texts:
+                    text = text.strip()
+                    if text:
+                        content_lines.append(text)
+
+            if content_lines:
+                item_content = "\n".join(content_lines)
+                logger.info(f"Item {item_index + 1}: extracted {len(content_lines)} lines")
+                return item_content
+            else:
+                logger.warning(f"Item {item_index + 1}: no content found")
+                return None
+
+        except Exception as e:
+            logger.error(f"Error extracting item {item_index + 1}: {e}")
+            return None
 
     def fetch_content(self) -> Optional[str]:
         """Fetch content with optimized approach - REUSES browser"""
@@ -648,7 +725,7 @@ def collect_and_save_data():
             collector = OptimizedDataCollector(url)
             logger.info(f"💤 Sleeping for {error_interval} seconds after error...")
             time.sleep(error_interval)
-            
+
 
 # Initialize data manager instance
 data_manager = DataManager()
