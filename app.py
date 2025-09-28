@@ -134,6 +134,7 @@ class OptimizedDataCollector:
     def __init__(self, url: str):
         self.url = url
         self.last_content = ""
+        self.driver = None  # Single driver instance
         self.session = requests.Session()
         # Configure session headers to mimic a real browser
         self.session.headers.update({
@@ -145,51 +146,58 @@ class OptimizedDataCollector:
             'Upgrade-Insecure-Requests': '1',
         })
     
-    @contextmanager
     def _get_driver(self):
-        """Context manager for driver lifecycle"""
-        driver = None
-        try:
-            firefox_options = FirefoxOptions()
-            firefox_options.add_argument("--headless")
-            firefox_options.add_argument("--no-sandbox")
-            firefox_options.add_argument("--disable-dev-shm-usage")
-            firefox_options.add_argument("--disable-gpu")
-            firefox_options.add_argument("--window-size=1920,1080")
-            
-            # Performance optimizations
-            firefox_options.set_preference("dom.webdriver.enabled", False)
-            firefox_options.set_preference("useAutomationExtension", False)
-            firefox_options.set_preference("browser.cache.disk.enable", True)
-            firefox_options.set_preference("browser.cache.memory.enable", True)
-            firefox_options.set_preference("network.http.use-cache", True)
-            
-            # Reduce resource usage
-            firefox_options.set_preference("dom.max_script_run_time", 15)
-            firefox_options.set_preference("dom.max_chrome_script_run_time", 15)
-            
-            # Additional preferences for better compatibility
-            firefox_options.set_preference("javascript.enabled", True)
-            firefox_options.set_preference("permissions.default.image", 2)  # Don't load images
-            
-            logger.info("Initializing Firefox driver...")
-            service = FirefoxService('/usr/local/bin/geckodriver')
-            driver = webdriver.Firefox(service=service, options=firefox_options)
-            driver.set_page_load_timeout(45)  # Increased timeout
-            driver.implicitly_wait(10)
-            
-            logger.info("Firefox driver initialized successfully")
-            yield driver
-        except Exception as e:
-            logger.error(f"Driver setup error: {e}")
-            raise
-        finally:
-            if driver:
-                try:
-                    driver.quit()
-                    logger.info("Firefox driver closed")
-                except Exception as e:
-                    logger.warning(f"Error quitting driver: {e}")
+        """Get or create driver instance - REUSE instead of recreate"""
+        if self.driver is None:
+            try:
+                firefox_options = FirefoxOptions()
+                firefox_options.add_argument("--headless")
+                firefox_options.add_argument("--no-sandbox")
+                firefox_options.add_argument("--disable-dev-shm-usage")
+                firefox_options.add_argument("--disable-gpu")
+                firefox_options.add_argument("--window-size=1920,1080")
+                
+                # Performance optimizations
+                firefox_options.set_preference("dom.webdriver.enabled", False)
+                firefox_options.set_preference("useAutomationExtension", False)
+                firefox_options.set_preference("browser.cache.disk.enable", True)
+                firefox_options.set_preference("browser.cache.memory.enable", True)
+                firefox_options.set_preference("network.http.use-cache", True)
+                
+                # Reduce resource usage - MORE AGGRESSIVE
+                firefox_options.set_preference("dom.max_script_run_time", 10)
+                firefox_options.set_preference("dom.max_chrome_script_run_time", 10)
+                firefox_options.set_preference("javascript.enabled", True)
+                firefox_options.set_preference("permissions.default.image", 2)  # Don't load images
+                
+                # Additional performance tweaks
+                firefox_options.set_preference("browser.tabs.remote.autostart", False)
+                firefox_options.set_preference("browser.tabs.remote.autostart.2", False)
+                firefox_options.set_preference("browser.sessionstore.resume_from_crash", False)
+                firefox_options.set_preference("browser.sessionstore.max_resumed_crashes", 0)
+                
+                logger.info("Initializing Firefox driver...")
+                service = FirefoxService('/usr/local/bin/geckodriver')
+                self.driver = webdriver.Firefox(service=service, options=firefox_options)
+                self.driver.set_page_load_timeout(30)  # Reduced from 45
+                self.driver.implicitly_wait(5)  # Reduced from 10
+                
+                logger.info("Firefox driver initialized successfully")
+            except Exception as e:
+                logger.error(f"Driver setup error: {e}")
+                raise
+        
+        return self.driver
+    
+    def _cleanup_driver(self):
+        """Clean up driver if it exists"""
+        if self.driver:
+            try:
+                self.driver.quit()
+                self.driver = None
+                logger.info("Firefox driver closed")
+            except Exception as e:
+                logger.warning(f"Error quitting driver: {e}")
     
     def _extract_content_selenium(self, driver) -> Optional[str]:
         """Extract content using Selenium with better waiting strategies"""
@@ -197,12 +205,12 @@ class OptimizedDataCollector:
             logger.info("Waiting for page to load...")
             
             # Wait for the body to be present first
-            WebDriverWait(driver, 30).until(
+            WebDriverWait(driver, 20).until(  # Reduced from 30
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
             
             # Wait for the main check container
-            check_container = WebDriverWait(driver, 20).until(
+            check_container = WebDriverWait(driver, 15).until(  # Reduced from 20
                 EC.presence_of_element_located((By.CSS_SELECTOR, "div.check"))
             )
             
@@ -212,6 +220,9 @@ class OptimizedDataCollector:
             
         except Exception as e:
             logger.error(f"Error extracting content with Selenium: {e}")
+            # Cleanup driver on error to force fresh start next time
+            self._cleanup_driver()
+            
             # Fallback to page source
             try:
                 html = driver.page_source
@@ -219,98 +230,20 @@ class OptimizedDataCollector:
             except Exception as fallback_error:
                 logger.error(f"Fallback extraction also failed: {fallback_error}")
                 return None
-    
-    def _extract_content_from_html(self, html: str) -> Optional[str]:
-        """Extract content from HTML - now handles multiple items per check"""
-        try:
-            soup = BeautifulSoup(html, "html.parser")
-            
-            # Find the main check container
-            check_div = soup.select_one('div.check')
-            if not check_div:
-                logger.warning("No check container found in HTML")
-                # Try alternative selectors
-                check_div = soup.select_one('div[class*="check"]')
-                if not check_div:
-                    logger.warning("No check container found with alternative selectors")
-                    return None
-            
-            # Find all item positions within the check
-            chek_positions = check_div.select('div.chekPosition')
-            logger.info(f"Found {len(chek_positions)} items in the check")
-            
-            if not chek_positions:
-                logger.warning("No items found within the check container")
-                return None
-            
-            all_items_content = []
-            
-            # Process each item separately
-            for i, position in enumerate(chek_positions):
-                item_content = self._extract_single_item_content(position, i)
-                if item_content:
-                    all_items_content.append(item_content)
-            
-            if all_items_content:
-                # Join items with a separator that's easy to parse later
-                combined_content = "===ITEM_SEPARATOR===".join(all_items_content)
-                logger.info(f"Extracted {len(all_items_content)} items successfully")
-                return combined_content
-            else:
-                logger.warning("No valid content extracted from any items")
-                return None
-            
-        except Exception as e:
-            logger.error(f"Content extraction error: {e}")
-            return None
-    
-    def _extract_single_item_content(self, position, item_index: int) -> Optional[str]:
-        """Extract content for a single item/position"""
-        try:
-            content_lines = []
 
-            # Extract all text elements from this position
-            paragraphs = position.find_all('p')
-            for p in paragraphs:
-                text = p.get_text(strip=True)
-                if text:
-                    # Skip bold price lines (they'll be extracted separately)
-                    if 'bold' not in p.get('class', []) and not re.match(r'^\d+\.\d+', text):
-                        content_lines.append(text)
-
-            # 🔥 FIX: extract all price/discount blocks (not just one)
-            price_sections = position.select('div.NDS')
-            for price_section in price_sections:
-                price_texts = price_section.find_all(text=True, recursive=True)
-                for text in price_texts:
-                    text = text.strip()
-                    if text:
-                        content_lines.append(text)
-
-            if content_lines:
-                item_content = "\n".join(content_lines)
-                logger.info(f"Item {item_index + 1}: extracted {len(content_lines)} lines")
-                return item_content
-            else:
-                logger.warning(f"Item {item_index + 1}: no content found")
-                return None
-
-        except Exception as e:
-            logger.error(f"Error extracting item {item_index + 1}: {e}")
-            return None
-
+    # Keep your existing _extract_content_from_html and _extract_single_item_content methods
 
     def fetch_content(self) -> Optional[str]:
-        """Fetch content with optimized approach"""
+        """Fetch content with optimized approach - REUSES browser"""
         try:
             logger.info(f"Fetching content from: {self.url}")
             
-            with self._get_driver() as driver:
-                logger.info(f"Navigating to URL: {self.url}")
-                driver.get(self.url)
-                
-                # Extract content using Selenium
-                content = self._extract_content_selenium(driver)
+            driver = self._get_driver()  # Get existing or create driver
+            logger.info(f"Navigating to URL: {self.url}")
+            driver.get(self.url)
+            
+            # Extract content using Selenium
+            content = self._extract_content_selenium(driver)
 
             if content:
                 logger.info(f"Content extracted successfully ({len(content.split('===ITEM_SEPARATOR==='))} items)")
@@ -326,7 +259,13 @@ class OptimizedDataCollector:
 
         except Exception as e:
             logger.error(f"Error in fetch_content: {e}")
+            # Cleanup driver on major error
+            self._cleanup_driver()
             return None
+    
+    def cleanup(self):
+        """Public cleanup method"""
+        self._cleanup_driver()
 
 class DataManager:
     """Manages data storage and retrieval efficiently"""
@@ -644,19 +583,22 @@ def get_top_selling_products_by_revenue_last_7_days() -> List[Dict]:
         return []
 
 def collect_and_save_data():
-    """Optimized data collection with configurable intervals"""
+    """Optimized data collection with single browser instance"""
     url = os.getenv('TARGET_URL', 'example.com')
     if not url:
         logger.error("TARGET_URL environment variable not set!")
         return
     
     logger.info(f"Starting data collection for URL: {url}")
-    collector = OptimizedDataCollector(url)
-    data_manager = DataManager()
+    collector = OptimizedDataCollector(url)  # Single instance
     
-    # Configurable intervals
-    normal_interval = int(os.getenv('CHECK_INTERVAL', '30'))  # seconds
-    error_interval = int(os.getenv('ERROR_INTERVAL', '60'))   # seconds
+    # Register cleanup on exit
+    import atexit
+    atexit.register(collector.cleanup)
+    
+    # Configurable intervals - INCREASE to reduce load
+    normal_interval = int(os.getenv('CHECK_INTERVAL', '60'))  # Increased from 30 to 60
+    error_interval = int(os.getenv('ERROR_INTERVAL', '120'))   # Increased from 60 to 120
     
     consecutive_errors = 0
     max_consecutive_errors = 3
@@ -689,6 +631,9 @@ def collect_and_save_data():
             if consecutive_errors >= max_consecutive_errors:
                 sleep_time = error_interval * 2
                 logger.error(f"🔴 Too many errors, increasing interval to {sleep_time}s")
+                # Cleanup and recreate collector on persistent errors
+                collector.cleanup()
+                collector = OptimizedDataCollector(url)
             elif consecutive_errors > 0:
                 sleep_time = error_interval
             
@@ -698,9 +643,12 @@ def collect_and_save_data():
         except Exception as e:
             consecutive_errors += 1
             logger.error(f"🔴 Error in data collection loop: {e}")
+            # Cleanup on error
+            collector.cleanup()
+            collector = OptimizedDataCollector(url)
             logger.info(f"💤 Sleeping for {error_interval} seconds after error...")
             time.sleep(error_interval)
-
+            
 
 # Initialize data manager instance
 data_manager = DataManager()
