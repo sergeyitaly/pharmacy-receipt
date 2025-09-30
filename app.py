@@ -937,7 +937,7 @@ def api_totals():
 @app.route('/api/top-products')
 def api_top_products():
     """API endpoint for top selling products"""
-    top_products = get_top_selling_products_last_7_days()
+    top_products = get_top_selling_products_by_quantity_last_7_days()
     return jsonify(top_products)
 
 @app.route('/status')
